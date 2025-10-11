@@ -19,11 +19,11 @@ set(CMAKE_C_FLAGS_DEBUG "")
 
 set(SRC
 	main.c error.c
-	header.c bigstring.c
+	header.c bigstring.c attachment.c
 )
 
 set(H
-	header.h error.h bigstring.h
+	header.h error.h bigstring.h attachment.h
 )
 
 set(FILES_FMT ${SRC} ${H})
