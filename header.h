@@ -27,7 +27,8 @@ extern void eml_header_print(eml_header_p, FILE*);
 
 extern void eml_header_set_init(eml_header_set_p);
 extern int eml_header_set_init_by_args(eml_header_set_p, int argc, char** argv);
-extern int eml_header_set_add(eml_header_set_p, char* key, char* value);
+extern int
+eml_header_set_add(eml_header_set_p, const char* key, const char* value);
 extern void eml_header_set_print(eml_header_set_p, FILE*);
 
 #endif /* CMC_EML_HEADER_H_INCLUDED */

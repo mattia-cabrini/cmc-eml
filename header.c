@@ -26,7 +26,7 @@ void eml_header_set_init(eml_header_set_p S)
         eml_header_init(S->H + cur);
 }
 
-int eml_header_set_add(eml_header_set_p S, char* key, char* value)
+int eml_header_set_add(eml_header_set_p S, const char* key, const char* value)
 {
     size_t keysize;
     size_t valuesize;
