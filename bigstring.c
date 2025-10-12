@@ -3,8 +3,11 @@
 
 #include "bigstring.h"
 #include "error.h"
+
 #include <errno.h>
 #include <stdarg.h>
+#include <string.h>
+#include <unistd.h>
 
 #define BIGSTRING_START_SIZE 65536
 
@@ -36,20 +39,25 @@ int bigstring_init(bigstring_p S)
     return OK;
 }
 
-int bigstring_append_file(bigstring_p S, FILE* fp)
+int bigstring_append_file(bigstring_p S, int fd)
 {
-    int    ret        = OK;
-    size_t read_bytes = 0;
-    size_t buf_fill   = 0;
+    int     ret        = OK;
+    ssize_t read_bytes = 1; /* To enter while loop at least once */
+    size_t  buf_fill   = 0;
 
     assert(S->cur >= 0, FATAL_SIGSEGV, "bigstring_append_file: !init (cur)");
     assert(S->buf != 0, FATAL_SIGSEGV, "bigstring_append_file: !init (buf)");
 
-    while (ret == OK && !feof(fp))
+    while (ret == OK && read_bytes > 0)
     {
         buf_fill   = S->max - (size_t)S->cur;
-        read_bytes = fread(S->buf + S->cur, sizeof(S->buf[0]), buf_fill, fp);
-        S->cur += (ssize_t)read_bytes;
+        read_bytes = read(fd, S->buf + S->cur, sizeof(S->buf[0]) * buf_fill);
+        assert(
+            read_bytes >= 0,
+            FATAL_SIGSEGV,
+            "bigstring_append_file: could not read file"
+        );
+        S->cur += read_bytes;
 
         /* Buffer filled, realloc */
         if ((size_t)S->cur == S->max)

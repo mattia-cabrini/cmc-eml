@@ -3,6 +3,7 @@
 
 #include "header.h"
 #include "error.h"
+#include "util.h"
 
 #include <string.h>
 
@@ -12,9 +13,9 @@ void eml_header_init(eml_header_p H)
     H->value[0] = '\0';
 }
 
-void eml_header_print(eml_header_p H, FILE* fp)
+void eml_header_print(eml_header_p H, int fd)
 {
-    fprintf(fp, "%s: %s\n", H->key, H->value);
+    writeev(fd, H->key, ": ", H->value, "\n", NULL);
 }
 
 void eml_header_set_init(eml_header_set_p S)
@@ -88,14 +89,14 @@ int eml_header_set_init_by_args(eml_header_set_p S, int argc, char** argv)
     return OK;
 }
 
-void eml_header_set_print(eml_header_set_p S, FILE* fp)
+void eml_header_set_print(eml_header_set_p S, int fd)
 {
     int cur;
 
     for (cur = 0; cur < S->count; ++cur)
     {
-        eml_header_print(S->H + cur, fp);
+        eml_header_print(S->H + cur, fd);
     }
 
-    fprintf(fp, "\n");
+    writeev(fd, "\n", NULL);
 }

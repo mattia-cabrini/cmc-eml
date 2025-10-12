@@ -19,7 +19,7 @@ typedef struct bigstring_t
 extern int bigstring_init(bigstring_p);
 
 extern int bigstring_append(bigstring_p, char*);
-extern int bigstring_append_file(bigstring_p, FILE*);
+extern int bigstring_append_file(bigstring_p, int fd);
 
 /* NULL-value terminated */
 extern int bigstring_appendv(bigstring_p, ...);
