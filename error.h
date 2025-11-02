@@ -4,8 +4,11 @@
 #ifndef CMC_EML_FATAL_H_INCLUDED
 #define CMC_EML_FATAL_H_INCLUDED
 
+#include <errno.h>
+#include <gpgme.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 /* [0, 1000]
  * OK and FATAL(s)
@@ -14,6 +17,7 @@
 #define FATAL_PARAM 2
 #define FATAL_SIGSEGV 3
 #define FATAL_LOGIC 4
+#define FATAL_GPGME 5
 
 /* (1e+3, 1e+6]
  * ¬FATAL ERROR(s)
@@ -26,6 +30,8 @@
 
 #define MAX_ERROR_SIZE 1024
 extern char error_message[];
+
+extern void error_setgpg(gpgme_error_t err);
 
 #define return_iferr(ret)                                                      \
     {                                                                          \
@@ -40,7 +46,13 @@ extern char error_message[];
         if (!(cond))                                                           \
         {                                                                      \
             if ((code) > 1000000)                                              \
-                fprintf(stderr, "%s\n", strerror((code) - 1000000));           \
+                fprintf(                                                       \
+                    stderr,                                                    \
+                    "ERROR %d: %s\n---AT %s\n",                                \
+                    (code) - 1000000,                                          \
+                    strerror((code) - 1000000),                                \
+                    msg                                                        \
+                );                                                             \
             else                                                               \
                 fprintf(stderr, "%s\n", msg);                                  \
                                                                                \

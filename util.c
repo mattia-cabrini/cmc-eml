@@ -1,25 +1,30 @@
 /* Copyright (c) 2025 Mattia Cabrini */
 /* SPDX-License-Identifier: MIT      */
 
-#include "util.h"
-#include "error.h"
+#include "feat.h"
 
+#include <errno.h>
+#include <fcntl.h>
 #include <stdarg.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
+#include "error.h"
+#include "util.h"
+
 static void rbuffer_next(rbuffer_p B);
 
-void rbuffer_init(rbuffer_p B, int fd)
+void rbuffer_init(rbuffer_p B, file_p F)
 {
-    B->fd    = fd;
+    B->F     = F;
     B->count = 0;
     B->cur   = 0;
 }
 
 static void rbuffer_next(rbuffer_p B)
 {
-    B->count = read(B->fd, B->buffer, sizeof(B->buffer));
+    B->count = file_read(B->F, B->buffer, sizeof(B->buffer));
     B->cur   = 0;
     assert(B->count >= 0, FATAL_SIGSEGV, "rbuffer_next: could not read");
 }
@@ -47,9 +52,9 @@ ssize_t rbuffer_read(rbuffer_p B, char* dst, ssize_t sz)
     return dst_i;
 }
 
-void wbuffer_init(wbuffer_p B, int fd)
+void wbuffer_init(wbuffer_p B, file_p F)
 {
-    B->fd  = fd;
+    B->F   = F;
     B->cur = 0;
 }
 
@@ -74,34 +79,36 @@ void wbuffer_flush(wbuffer_p B)
 {
     ssize_t res;
 
-    res = write(B->fd, B->buffer, B->cur);
-    assert(
-        (size_t)res == B->cur, FATAL_SIGSEGV, "wbuffer_flush: could not write"
-    );
+    res = file_write(B->F, B->buffer, B->cur);
+    assert(res == OK, FATAL_SIGSEGV, "wbuffer_flush: could not write");
     B->cur = 0;
 }
 
-void writee(int fd, char* buf, size_t sz)
+int strnappend(char* dst, const char* src, int n)
 {
-    ssize_t res;
-    res = write(fd, buf, sz);
+    int on = n;
 
-    if ((size_t)res != sz)
+    for (; n > 0 && *src; --n)
     {
-        sprintf(error_message, "write on %d failed", fd);
-        assert((size_t)res == sz, FATAL_SIGSEGV, error_message);
+        *dst = *src;
+
+        ++dst;
+        ++src;
     }
+
+    return on - n;
 }
 
-void writeev(int fd, ...)
+void strnappendv(char* dst, int n, ...)
 {
-    va_list args;
-    char*   str;
+    int         cp  = 0;
+    const char* str = NULL;
+    va_list     args;
 
-    va_start(args, fd);
+    va_start(args, n);
 
-    while ((str = va_arg(args, char*)) != NULL)
-        writee(fd, str, strlen(str) * sizeof(char));
+    while ((str = va_arg(args, const char*)) != NULL)
+        cp += strnappend(dst + cp, str, n - cp);
 
     va_end(args);
 }

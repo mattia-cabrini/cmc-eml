@@ -13,9 +13,9 @@ void eml_header_init(eml_header_p H)
     H->value[0] = '\0';
 }
 
-void eml_header_print(eml_header_p H, int fd)
+void eml_header_print(eml_header_p H, file_p F)
 {
-    writeev(fd, H->key, ": ", H->value, "\n", NULL);
+    file_write_strv(F, H->key, ": ", H->value, "\n", NULL);
 }
 
 void eml_header_set_init(eml_header_set_p S)
@@ -89,14 +89,14 @@ int eml_header_set_init_by_args(eml_header_set_p S, int argc, char** argv)
     return OK;
 }
 
-void eml_header_set_print(eml_header_set_p S, int fd)
+void eml_header_set_print(eml_header_set_p S, file_p F)
 {
     int cur;
 
     for (cur = 0; cur < S->count; ++cur)
     {
-        eml_header_print(S->H + cur, fd);
+        eml_header_print(S->H + cur, F);
     }
 
-    writeev(fd, "\n", NULL);
+    file_write_strv(F, "\n", NULL);
 }

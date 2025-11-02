@@ -3,6 +3,7 @@
 
 #include "bigstring.h"
 #include "error.h"
+#include "io.h"
 
 #include <errno.h>
 #include <stdarg.h>
@@ -39,7 +40,7 @@ int bigstring_init(bigstring_p S)
     return OK;
 }
 
-int bigstring_append_file(bigstring_p S, int fd)
+int bigstring_append_file(bigstring_p S, file_p F)
 {
     int     ret        = OK;
     ssize_t read_bytes = 1; /* To enter while loop at least once */
@@ -50,8 +51,9 @@ int bigstring_append_file(bigstring_p S, int fd)
 
     while (ret == OK && read_bytes > 0)
     {
-        buf_fill   = S->max - (size_t)S->cur;
-        read_bytes = read(fd, S->buf + S->cur, sizeof(S->buf[0]) * buf_fill);
+        buf_fill = S->max - (size_t)S->cur;
+        read_bytes =
+            file_read(F, S->buf + S->cur, sizeof(S->buf[0]) * buf_fill);
         assert(
             read_bytes >= 0,
             FATAL_SIGSEGV,

@@ -1,0 +1,235 @@
+/* Copyright (c) 2025 Mattia Cabrini */
+/* SPDX-License-Identifier: MIT      */
+
+#include "feat.h"
+
+#include "error.h"
+#include "io.h"
+#include "util.h"
+
+#include <fcntl.h>
+#include <stdarg.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+void file_set_null(file_p F)
+{
+    if (F == NULL)
+        return;
+
+    F->fd = -1;
+}
+
+int file_is_init(file_p F)
+{
+    if (F == NULL)
+        return 0;
+
+    return F->fd >= 0;
+}
+
+int file_open(file_p F, const char* path, int flags, mode_t mode)
+{
+    assert(F != NULL, FATAL_LOGIC, "file_open: invalid file");
+
+    F->fd = open(path, flags, mode);
+
+    if (F->fd < 0)
+        return errno + ERRNO_SPLIT;
+
+#ifdef DEBUG
+    fprintf(
+        stderr,
+        "DEBUG open fd %d with flags %d and mode %d\n",
+        F->fd,
+        flags,
+        mode
+    );
+#endif
+
+    return OK;
+}
+
+int file_open_tmp(file_p F)
+{
+    char template[] = "/tmp/XXXXXX";
+    int res;
+
+    assert(F != NULL, FATAL_LOGIC, "file_open_tmp: invalid file");
+
+    F->fd = mkstemp(template);
+    if (F->fd < 0)
+        return errno + ERRNO_SPLIT;
+
+#ifdef DEBUG
+    fprintf(
+        stderr, "DEBUG open tmp file with fd %d; path: %s\n", F->fd, template
+    );
+    fprintf(stderr, "DEBUG unlink path %s\n", template);
+#endif
+
+    res = unlink(template);
+    assert(res != -1, errno + ERRNO_SPLIT, "file_open_tmp: unlink");
+
+    return OK;
+}
+
+void file_set_fd(file_p F, int fd)
+{
+    assert(F != NULL, FATAL_LOGIC, "file_set_fd: invalid file");
+
+    F->fd = fd;
+}
+
+ssize_t file_read(file_p F, char* buf, size_t max)
+{
+    ssize_t res;
+
+    assert(F != NULL, FATAL_LOGIC, "file_read: invalid file");
+    res = read(F->fd, buf, max);
+
+#ifdef DEBUG
+    fprintf(stderr, "DEBUG read %ld bytes from fd %d\n", res, F->fd);
+#endif
+
+    return res;
+}
+
+int file_write(file_p F, const char* buf, size_t count)
+{
+    ssize_t written;
+    assert(F != NULL, FATAL_LOGIC, "file_write: invalid file");
+
+    written = write(F->fd, buf, count);
+
+#ifdef DEBUG
+    fprintf(
+        stderr,
+        "DEBUG written %ld bytes from fd %d; requested %lu\n",
+        written,
+        F->fd,
+        count
+    );
+#endif
+
+    if (written != (ssize_t)count)
+        return errno + ERRNO_SPLIT;
+
+    return OK;
+}
+
+int file_write_str(file_p F, const char* str)
+{
+    assert(F != NULL, FATAL_LOGIC, "file_write_str: invalid file");
+
+    return file_write(F, str, strlen(str) * sizeof(char));
+}
+
+int file_write_strv(file_p F, ...)
+{
+    va_list     args;
+    const char* str;
+    int         res = OK;
+
+    assert(F != NULL, FATAL_LOGIC, "file_write_strv: invalid file");
+
+    va_start(args, F);
+
+    while ((str = va_arg(args, const char*)) != NULL)
+    {
+        res = file_write_str(F, str);
+        if (res != OK)
+            break;
+    }
+
+    va_end(args);
+    return res;
+}
+
+int file_copy(file_p dst, file_p src)
+{
+    int     res;
+    ssize_t sz;
+    char    buf[8192];
+
+    assert(dst != NULL, FATAL_LOGIC, "file_copy: invalid file (dst)");
+    assert(src != NULL, FATAL_LOGIC, "file_copy: invalid file (src)");
+
+    sz = lseek(src->fd, 0, SEEK_END);
+    if (sz < 0)
+        return errno + ERRNO_SPLIT;
+
+    res = file_seek(src, 0, SEEK_SET);
+    if (res != OK)
+        return res;
+
+    while ((sz = file_read(src, buf, sizeof(buf))) > 0)
+    {
+        res = file_write(dst, buf, (size_t)sz);
+
+        if (res != OK)
+            return res;
+    }
+
+    if (sz < 0)
+        return errno + ERRNO_SPLIT;
+
+    return OK;
+}
+
+int file_seek(file_p F, off_t off, int whence)
+{
+    off_t out;
+
+    assert(F != NULL, FATAL_LOGIC, "file_seek: invalid file");
+
+#ifdef DEBUG
+    fprintf(
+        stderr,
+        "DEBUG seek on fd %d; off: %ld; whence: %d\n",
+        F->fd,
+        off,
+        whence
+    );
+#endif
+
+    out = lseek(F->fd, off, whence);
+    if (out == -1)
+        return errno + ERRNO_SPLIT;
+
+    return OK;
+}
+
+off_t file_cur(file_p F)
+{
+    assert(F != NULL, FATAL_LOGIC, "file_cur: invalid file");
+
+#ifdef DEBUG
+    fprintf(
+        stderr,
+        "DEBUG file_cur: seek on fd %d; off: 0; whence: %d\n",
+        F->fd,
+        SEEK_CUR
+    );
+#endif
+
+    return lseek(F->fd, 0, SEEK_CUR);
+}
+
+int file_isreg(file_p F)
+{
+    struct stat s;
+
+    assert(F != NULL, FATAL_LOGIC, "file_isreg: invalid file");
+
+    fstat(F->fd, &s);
+    return s.st_mode == S_IFREG;
+}
+
+void file_close(file_p F)
+{
+    assert(F != NULL, FATAL_LOGIC, "file_close: invalid file");
+
+    close(F->fd);
+    F->fd = -1;
+}

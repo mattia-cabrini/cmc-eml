@@ -18,12 +18,12 @@ set(CMAKE_C_FLAGS_RELEASE "")
 set(CMAKE_C_FLAGS_DEBUG "")
 
 set(SRC
-	main.c error.c base64.c util.c
-	header.c bigstring.c attachment.c
+	main.c error.c base64.c util.c io.c
+	header.c bigstring.c attachment.c sign.c
 )
 
 set(H
-	header.h error.h bigstring.h attachment.h base64.h util.h
+	header.h error.h bigstring.h attachment.h base64.h util.h sign.h io.h
 )
 
 set(FILES_FMT ${SRC} ${H})
@@ -44,6 +44,11 @@ elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 	message(FATAL_ERROR "Your compiler is not supported.")
 endif()
+
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(GPGME REQUIRED gpgme)
+
+target_link_libraries(cmc-eml PRIVATE ${GPGME_LIBRARIES})
 
 target_compile_options(cmc-eml PRIVATE 
 	-pedantic -pedantic-errors -Werror

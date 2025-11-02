@@ -111,7 +111,7 @@ void base64_encode_three(char* dst, char* three, unsigned int size)
     }
 }
 
-int base64_file_to_file(int fd, int out, int line_length)
+int base64_file_to_file(file_p in, file_p out, int line_length)
 {
 #define cmc_base64_err_outfile "base64_file_to_file: could not print on outfile"
     char buf[4];
@@ -124,9 +124,16 @@ int base64_file_to_file(int fd, int out, int line_length)
     struct rbuffer_t file_in;
     struct wbuffer_t file_out;
 
-    rbuffer_init(&file_in, fd);
+    int res;
+
+    rbuffer_init(&file_in, in);
     wbuffer_init(&file_out, out);
-    lseek(fd, 0, SEEK_SET);
+
+    if (file_isreg(in))
+    {
+        res = file_seek(in, 0, SEEK_SET);
+        assert(res == OK, res, "base64_file_to_file: seek set");
+    }
 
     while ((rw_bytes = rbuffer_read(&file_in, three, sizeof(three))) > 0)
     {

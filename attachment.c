@@ -51,7 +51,8 @@ int att_set_init_by_args(att_set_p A, int argc, char** argv)
 
 int att_init(att_p A, char* mime, char* filename, char* path)
 {
-    A->fd = -1;
+    A->F = NULL;
+
     STRCPY_OR_TOOLONG(A->path, path, sizeof(A->path), "Path too long");
     STRCPY_OR_TOOLONG(A->mime, mime, sizeof(A->mime), "Mime-Type too long");
     STRCPY_OR_TOOLONG(
@@ -61,27 +62,28 @@ int att_init(att_p A, char* mime, char* filename, char* path)
     return OK;
 }
 
-int att_init_fd(att_p A, char* mime, char* filename, int fd)
+int att_init_file(att_p A, char* mime, char* filename, file_p F)
 {
     STRCPY_OR_TOOLONG(A->mime, mime, sizeof(A->mime), "Mime-Type too long");
     STRCPY_OR_TOOLONG(
         A->filename, filename, sizeof(A->filename), "Filename too long"
     );
-    A->fd = fd;
+    A->F = F;
 
     return OK;
 }
 
-int att_print(att_p A, int fd, const char* boundary, int body)
+int att_print(att_p A, file_p F, const char* boundary, int body)
 {
-    int ret = OK;
+    int           ret = OK;
+    struct file_t tmp_file;
 
-    writeev(fd, "Content-Type: ", A->mime, "; charset=UTF-8\n", NULL);
+    file_write_strv(F, "Content-Type: ", A->mime, "; charset=UTF-8\n", NULL);
 
     if (!body)
     {
-        writeev(
-            fd,
+        file_write_strv(
+            F,
             "Content-Disposition: attachment; filename=\"",
             A->filename,
             "\"\n",
@@ -89,28 +91,25 @@ int att_print(att_p A, int fd, const char* boundary, int body)
         );
     }
 
-    writeev(fd, "Content-Transfer-Encoding: base64\n\n", NULL);
+    file_write_strv(F, "Content-Transfer-Encoding: base64\n\n", NULL);
 
-    if (A->fd == -1)
+    if (!file_is_init(A->F))
     {
-        A->fd = open(A->path, O_RDWR, 0444);
-        sprintf(error_message, "Could not open file %s", A->path);
-        assert(A->fd >= 0, A->fd + ERRNO_SPLIT, error_message);
+        ret = file_open(&tmp_file, A->path, O_RDWR, 0444);
+        if (ret < 0)
+            assert(0, ret, "att_print: open");
 
-        ret   = base64_file_to_file(A->fd, fd, 80);
-
-        ret   = close(A->fd);
-        A->fd = -1;
-        assert(ret == 0, ret + ERRNO_SPLIT, "Could not close file");
+        ret = base64_file_to_file(&tmp_file, F, 80);
+        file_close(&tmp_file);
     }
     else
     {
-        ret = base64_file_to_file(A->fd, fd, 80);
+        ret = base64_file_to_file(A->F, F, 80);
     }
 
     return_iferr(ret);
 
-    writeev(fd, "\n\n--------------", boundary, "\n", NULL);
+    file_write_strv(F, "\n\n--------------", boundary, "\n", NULL);
 
     return OK;
 }
@@ -127,11 +126,11 @@ int att_set_add(att_set_p A, char* mime, char* filename, char* path)
     return OK;
 }
 
-int att_set_add_fd(att_set_p A, char* mime, char* filename, int fd)
+int att_set_add_file(att_set_p A, char* mime, char* filename, file_p F)
 {
     int ret = OK;
 
-    ret     = att_init_fd(&A->attachments[A->count], mime, filename, fd);
+    ret     = att_init_file(&A->attachments[A->count], mime, filename, F);
 
     if (ret == OK)
         ++A->count;
@@ -146,12 +145,12 @@ void att_set_set_body_index(att_set_p A)
     A->body_index = A->count - 1;
 }
 
-int att_set_print(att_set_p A, int fd, char* boundary)
+int att_set_print(att_set_p A, file_p F, char* boundary)
 {
     int cur;
     int ret = OK;
 
-    writeev(fd, "--------------", boundary, "\n", NULL);
+    file_write_strv(F, "--------------", boundary, "\n", NULL);
 
     if (A->body_index > 0)
     {
@@ -160,12 +159,12 @@ int att_set_print(att_set_p A, int fd, char* boundary)
             FATAL_LOGIC,
             "att_set_print: body index out of bound"
         );
-        ret = att_print(A->attachments + A->body_index, fd, boundary, 1);
+        ret = att_print(A->attachments + A->body_index, F, boundary, 1);
     }
 
     for (cur = 0; ret == OK && cur < A->count; ++cur)
         if (cur != A->body_index)
-            ret = att_print(A->attachments + cur, fd, boundary, 0);
+            ret = att_print(A->attachments + cur, F, boundary, 0);
 
     return ret;
 }

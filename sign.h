@@ -1,0 +1,30 @@
+/* Copyright (c) 2025 Mattia Cabrini */
+/* SPDX-License-Identifier: MIT      */
+
+#ifndef CMC_EML_SIGN_H_INCLUDED
+#define CMC_EML_SIGN_H_INCLUDED
+
+#include "io.h"
+
+#include <stdio.h>
+
+#define SIGN_MAX_KEY_SIZE 256
+
+enum
+{
+    SIGN_PREFER_NO     = 0,
+    SIGN_PREFER_MUTUAL = 1
+};
+
+typedef struct sign_spec_t
+{
+    int  sign;
+    char key[SIGN_MAX_KEY_SIZE];
+    int  preference;
+}* sign_spec_p;
+
+extern int sign_spec_init_by_args(sign_spec_p S, int argc, char** argv);
+extern void
+sign_to_file(file_p out, file_p in, size_t* fsize, const char* key_name);
+
+#endif /* CMC_EML_SIGN_H_INCLUDED */

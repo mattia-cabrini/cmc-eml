@@ -4,6 +4,8 @@
 #ifndef CMC_EML_BIGSTRING_H_INCLUDED
 #define CMC_EML_BIGSTRING_H_INCLUDED
 
+#include "io.h"
+
 #include <stddef.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -19,7 +21,7 @@ typedef struct bigstring_t
 extern int bigstring_init(bigstring_p);
 
 extern int bigstring_append(bigstring_p, char*);
-extern int bigstring_append_file(bigstring_p, int fd);
+extern int bigstring_append_file(bigstring_p, file_p F);
 
 /* NULL-value terminated */
 extern int bigstring_appendv(bigstring_p, ...);
