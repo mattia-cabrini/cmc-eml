@@ -97,10 +97,42 @@ ssize_t file_read(file_p F, char* buf, size_t max)
 
 int file_write(file_p F, const char* buf, size_t count)
 {
-    ssize_t written;
+    size_t  written = 0;
+    ssize_t res;
+    int     errcount = 0;
+
     assert(F != NULL, FATAL_LOGIC, "file_write: invalid file");
 
-    written = write(F->fd, buf, count);
+    while (written < count)
+    {
+        res = write(F->fd, buf + written, count - written);
+        if (res > 0)
+        {
+            written = written + (size_t)res;
+            continue;
+        }
+
+        if (res == 0)
+            return EIO + ERRNO_SPLIT;
+
+        switch (errno)
+        {
+        case EINTR:
+            if (errcount < 10)
+            {
+                ++errcount;
+                continue;
+            }
+            return errno + ERRNO_SPLIT;
+
+        case EAGAIN:
+            /* case EWOULDBLOCK: */
+            continue;
+
+        default:
+            return errno + ERRNO_SPLIT;
+        }
+    }
 
 #ifdef DEBUG
     fprintf(
@@ -111,9 +143,6 @@ int file_write(file_p F, const char* buf, size_t count)
         count
     );
 #endif
-
-    if (written != (ssize_t)count)
-        return errno + ERRNO_SPLIT;
 
     return OK;
 }
@@ -155,13 +184,12 @@ int file_copy(file_p dst, file_p src)
     assert(dst != NULL, FATAL_LOGIC, "file_copy: invalid file (dst)");
     assert(src != NULL, FATAL_LOGIC, "file_copy: invalid file (src)");
 
-    sz = lseek(src->fd, 0, SEEK_END);
-    if (sz < 0)
-        return errno + ERRNO_SPLIT;
-
-    res = file_seek(src, 0, SEEK_SET);
-    if (res != OK)
-        return res;
+    if (file_isreg(src))
+    {
+        res = file_seek(src, 0, SEEK_SET);
+        if (res != OK)
+            return res;
+    }
 
     while ((sz = file_read(src, buf, sizeof(buf))) > 0)
     {
@@ -223,7 +251,7 @@ int file_isreg(file_p F)
     assert(F != NULL, FATAL_LOGIC, "file_isreg: invalid file");
 
     fstat(F->fd, &s);
-    return s.st_mode == S_IFREG;
+    return S_ISREG(s.st_mode);
 }
 
 void file_close(file_p F)
