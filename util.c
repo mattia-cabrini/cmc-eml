@@ -106,7 +106,7 @@ int strnappend(char* dst, const char* src, int n)
 
     *dst = '\0';
 
-    return *src ? -1 : on - n;
+    return on - n;
 }
 
 int strnappendv(char* dst, int n, ...)

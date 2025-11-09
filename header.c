@@ -5,6 +5,8 @@
 #include "error.h"
 #include "util.h"
 
+#include <stdarg.h>
+#include <stdio.h>
 #include <string.h>
 
 void eml_header_init(eml_header_p H)
@@ -29,30 +31,23 @@ void eml_header_set_init(eml_header_set_p S)
 
 int eml_header_set_add(eml_header_set_p S, const char* key, const char* value)
 {
-    size_t keysize;
-    size_t valuesize;
-
     if (S->count == MAX_HEADERS)
     {
-        strncpy(error_message, "Header set is full", MAX_ERROR_SIZE);
+        strncpy(error_message, "too many headers", MAX_ERROR_SIZE);
         return BUFFER_FULL;
     }
 
-    keysize = (strlen(key) + 1) * sizeof(char);
-    if (keysize >= sizeof(S->H[S->count].key))
-    {
-        strncpy(error_message, "Key too long", MAX_ERROR_SIZE);
-        return STRING_TOO_LONG;
-    }
-    memcpy(S->H[S->count].key, key, keysize);
+    STRCPY_OR_TOOLONG(
+        S->H[S->count].key, key, sizeof(S->H[S->count].key), "key too long"
+    )
 
-    valuesize = (strlen(value) + 1) * sizeof(char);
-    if (valuesize >= sizeof(S->H[S->count].value))
-    {
-        strncpy(error_message, "Value too long", MAX_ERROR_SIZE);
-        return STRING_TOO_LONG;
-    }
-    memcpy(S->H[S->count].value, value, valuesize);
+    STRCPY_OR_TOOLONG(
+        S->H[S->count].value,
+        value,
+        sizeof(S->H[S->count].value),
+        "value too long"
+    )
+
     ++S->count;
 
     return OK;
@@ -108,15 +103,27 @@ void eml_header_set_print(eml_header_set_p S, file_p F)
 
 int eml_header_set_addv(eml_header_set_p S, const char* key, ...)
 {
+    int     ret;
     va_list args;
 
+    if (S->count == MAX_HEADERS)
+    {
+        strncpy(error_message, "too many headers", MAX_ERROR_SIZE);
+        return BUFFER_FULL;
+    }
+
+    STRCPY_OR_TOOLONG(
+        S->H[S->count].key, key, sizeof(S->H[S->count].key), "key too long"
+    )
+
     va_start(args, key);
-
-    strncpy(S->H[S->count].key, key, MAX_HEADER_KEY_SIZE);
-    strnappendvv(S->H[S->count].value, MAX_HEADER_VALUE_SIZE, args);
-    ++S->count;
-
+    ret = strnappendvv(S->H[S->count].value, MAX_HEADER_VALUE_SIZE, args);
     va_end(args);
+
+    if (ret < 0)
+        return STRING_TOO_LONG;
+
+    ++S->count;
 
     return OK;
 }

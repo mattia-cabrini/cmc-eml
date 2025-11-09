@@ -148,7 +148,7 @@ int base64_file_to_file(file_p in, file_p out, int line_length)
 
             current_ll = (int)sizeof(buf) - to_print_part;
             wbuffer_put(&file_out, "\n", sizeof(char));
-            wbuffer_put(&file_out, buf, (size_t)current_ll);
+            wbuffer_put(&file_out, buf + to_print_part, (size_t)current_ll);
         }
         else
         {

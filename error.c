@@ -10,13 +10,21 @@ char error_message[MAX_ERROR_SIZE];
 
 void error_setgpg(gpgme_error_t err)
 {
-    strnappendv(
+    int ret;
+
+    ret = strnappendv(
         error_message,
         MAX_ERROR_SIZE,
         gpgme_strsource(err),
         gpgme_strerror(err),
         NULL
     );
+
+    if (ret < 0)
+    {
+        fprintf(stderr, "%s %s\n", gpgme_strsource(err), gpgme_strerror(err));
+        assert(0, FATAL_LOGIC, "could not failsafe: buffer too small");
+    }
 
 #ifdef DEBUG
     fprintf(

@@ -62,7 +62,7 @@ void sign_to_file(file_p outF, file_p inF, size_t* fsize, const char* key_name)
     }
 
     err = gpgme_data_new(&out);
-    if (gpgme_data_new(&out))
+    if (err)
     {
         gpgme_data_release(in);
         gpgme_key_release(key);

@@ -60,6 +60,8 @@ extern int strnappendv(char* dst, int n, ...);
  * Copy all the strings in `args` into `dst`.
  * `n` is the maximum number of characters that `dst` can hold.
  *
+ * `args` must be NULL-terminated.
+ *
  * RETRUN
  * If it is not possible to copy all non-NUL characters from `args` to `dst` (n
  * too small), return -1.
