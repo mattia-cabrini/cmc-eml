@@ -253,6 +253,35 @@ int sign_create_autocrypt_header(sign_spec_p SIGN, eml_header_set_p S)
         return FATAL_SIGSEGV;
     }
 
+    switch (SIGN->preference)
+    {
+    case SIGN_PREFER_NO:
+        left += res = strnappendv(
+            str + left,
+            MAX_HEADER_VALUE_SIZE - left,
+            " preference=nopreference ",
+            NULL
+        );
+        break;
+    case SIGN_PREFER_MUTUAL:
+        left += res = strnappendv(
+            str + left, MAX_HEADER_VALUE_SIZE - left, " preference=mutual", NULL
+        );
+        break;
+    }
+
+    if (res < 0)
+    {
+        strnappendv(
+            error_message,
+            MAX_ERROR_SIZE,
+            "sign_create_autocrypt_header: could set autocrypt header: "
+            "MAX_HEADER_VALUE_SIZE too small",
+            NULL
+        );
+        return FATAL_SIGSEGV;
+    }
+
     if (*SIGN->keydata_path)
     {
         left += res = strnappendv(
