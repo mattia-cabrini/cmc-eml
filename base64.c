@@ -97,7 +97,7 @@ void base64_encode_three(char* dst, char* three, unsigned int size)
         dst[2] = dst[3] = '=';
         break;
     case 2:
-        n6     = ((three[1] & 0xF << 2)) | ((three[2] & 0xC0) >> 6);
+        n6     = (((three[1] & 0xF) << 2)) | ((three[2] & 0xC0) >> 6);
         dst[2] = ALPHABET[n6];
         dst[3] = '=';
         break;

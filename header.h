@@ -4,9 +4,9 @@
 #ifndef CMC_EML_HEADER_H_INCLUDED
 #define CMC_EML_HEADER_H_INCLUDED
 
-#define MAX_HEADER_KEY_SIZE 256
-#define MAX_HEADER_VALUE_SIZE 10240
-#define MAX_HEADERS 512
+#define MAX_HEADER_KEY_SIZE 64
+#define MAX_HEADER_VALUE_SIZE (4096 - 64)
+#define MAX_HEADERS 64
 
 #include "io.h"
 
@@ -28,7 +28,9 @@ extern void eml_header_init(eml_header_p);
 extern void eml_header_print(eml_header_p, file_p F);
 
 extern void eml_header_set_init(eml_header_set_p);
+extern void eml_header_set_copy(eml_header_set_p dst, eml_header_set_p src);
 extern int eml_header_set_init_by_args(eml_header_set_p, int argc, char** argv);
+extern int eml_header_set_addv(eml_header_set_p, const char*, ...);
 extern int
 eml_header_set_add(eml_header_set_p, const char* key, const char* value);
 extern void eml_header_set_print(eml_header_set_p, file_p F);

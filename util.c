@@ -96,19 +96,30 @@ int strnappend(char* dst, const char* src, int n)
         ++src;
     }
 
-    return on - n;
+    return *src ? -1 : on - n;
 }
 
-void strnappendv(char* dst, int n, ...)
+int strnappendv(char* dst, int n, ...)
 {
-    int         cp  = 0;
-    const char* str = NULL;
-    va_list     args;
-
+    int     res;
+    va_list args;
     va_start(args, n);
-
-    while ((str = va_arg(args, const char*)) != NULL)
-        cp += strnappend(dst + cp, str, n - cp);
-
+    res = strnappendvv(dst, n, args);
     va_end(args);
+    return res;
+}
+
+int strnappendvv(char* dst, int n, va_list args)
+{
+    int         cp   = 0;
+    int         cpin = 0;
+    const char* str  = NULL;
+
+    while (cpin >= 0 && (str = va_arg(args, const char*)) != NULL)
+    {
+        cpin = strnappend(dst + cp, str, n - cp);
+        cp += cpin;
+    }
+
+    return cpin < 0 ? cpin : cp;
 }

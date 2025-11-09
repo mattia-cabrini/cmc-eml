@@ -105,7 +105,8 @@ int sign_spec_init_by_args(sign_spec_p S, int argc, char** argv)
 {
     int cur;
 
-    S->sign = 0;
+    S->sign          = 0;
+    *S->keydata_path = '\0';
 
     for (cur = 1; cur < argc; ++cur)
     {
@@ -186,7 +187,144 @@ int sign_spec_init_by_args(sign_spec_p S, int argc, char** argv)
             fprintf(stderr, "Sign:Preference `%d`\n", S->preference);
 #endif
         }
+
+        if (strcmp(argv[cur], "-s:k") == 0 ||
+            strcmp(argv[cur], "--sign:keydata") == 0)
+        {
+            if (argc <= cur + 1)
+            {
+                sprintf(
+                    error_message,
+                    "Not enough parameters. #%d introduces sign keydata path "
+                    "but no "
+                    "path is provided.",
+                    cur
+                );
+                return FATAL_PARAM;
+            }
+
+            if (strlen(argv[cur + 1]) * sizeof(char) >= sizeof(S->keydata_path))
+            {
+                strnappendv(
+                    error_message,
+                    MAX_ERROR_SIZE,
+                    "keydata path too long (",
+                    argv[cur + 1],
+                    ")",
+                    NULL
+                );
+                return FATAL_PARAM;
+            }
+
+            strcpy(S->keydata_path, argv[cur + 1]);
+
+#ifdef DEBUG
+            fprintf(stderr, "Sign:Keydata Path `%s`\n", S->keydata_path);
+#endif
+        }
     }
 
+    return OK;
+}
+
+int sign_create_autocrypt_header(sign_spec_p SIGN, eml_header_set_p S)
+{
+    char          str[MAX_HEADER_VALUE_SIZE];
+    int           res  = 0;
+    int           left = 0;
+    char          line[73];
+    ssize_t       rb;
+    struct file_t kf;
+    int           resno;
+
+    left += res = strnappendv(
+        str + left, MAX_HEADER_VALUE_SIZE - left, "addr=", SIGN->key, NULL
+    );
+
+    if (res < 0)
+    {
+        strnappendv(
+            error_message,
+            MAX_ERROR_SIZE,
+            "sign_create_autocrypt_header: could set autocrypt header: "
+            "MAX_HEADER_VALUE_SIZE too small",
+            NULL
+        );
+        return FATAL_SIGSEGV;
+    }
+
+    if (*SIGN->keydata_path)
+    {
+        left += res = strnappendv(
+            str + left, MAX_HEADER_VALUE_SIZE - left, "; keydata=", NULL
+        );
+
+        if (res < 0)
+        {
+            strnappendv(
+                error_message,
+                MAX_ERROR_SIZE,
+                "sign_create_autocrypt_header: could set autocrypt header: "
+                "MAX_HEADER_VALUE_SIZE too small",
+                NULL
+            );
+            return FATAL_SIGSEGV;
+        }
+
+        resno = file_open(&kf, SIGN->keydata_path, O_RDONLY, 0);
+        if (resno)
+        {
+            strnappendv(
+                error_message,
+                MAX_ERROR_SIZE,
+                "sign_create_autocrypt_header: could not open keydata file (",
+                SIGN->keydata_path,
+                ")",
+                NULL
+            );
+            return resno;
+        }
+
+        rb = file_read(&kf, line, sizeof(line) - sizeof(char));
+        while (rb > 0)
+        {
+            line[rb]    = '\0';
+            left += res = strnappendv(
+                str + left, MAX_HEADER_VALUE_SIZE - left, "\n ", line, NULL
+            );
+
+            if (res < 0)
+            {
+                strnappendv(
+                    error_message,
+                    MAX_ERROR_SIZE,
+                    "sign_create_autocrypt_header: could set autocrypt header: "
+                    "MAX_HEADER_VALUE_SIZE too small",
+                    NULL
+                );
+                return FATAL_SIGSEGV;
+            }
+
+            rb = file_read(&kf, line, sizeof(line));
+        }
+
+        if (rb < 0)
+        {
+            strnappendv(
+                error_message,
+                MAX_ERROR_SIZE,
+                "sign_create_autocrypt_header: could not read keydata file (",
+                SIGN->keydata_path,
+                ")",
+                NULL
+            );
+            return ERRNO_SPLIT + errno;
+        }
+
+        file_close(&kf);
+    }
+
+    str[left] = '\0';
+    eml_header_set_add(S, "Autocrypt", str);
     return OK;
 }

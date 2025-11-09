@@ -4,6 +4,8 @@
 #ifndef CMC_EML_ATTACHMENT_H_INCLUDED
 #define CMC_EML_ATTACHMENT_H_INCLUDED
 
+#define MIME_ENCVER "application/pgp-encrypted"
+
 #define MAX_PATH_SIZE 256
 #define MAX_MIME_SIZE 64
 #define MAX_ATTACHMENTS 512

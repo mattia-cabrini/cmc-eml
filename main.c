@@ -24,12 +24,30 @@
 #include "sign.h"
 #include "util.h"
 
+#define MAIN_BODY_CLEAR "This is a multi-part message in MIME format.\n"
+#define MAIN_BODY_SIGN                                                         \
+    "This is an OpenPGP/MIME encrypted message (RFC 4880 and 3156)\n"
+#define MIME_OCTETSTREAM "application/octet-stream"
+
 void get_rand_string(char*, size_t);
-void print_clear_eml(
-    file_p F, eml_header_set_p S, att_set_p A, file_p msg, size_t* size
+void print_eml(
+    file_p           F,
+    eml_header_set_p S,
+    att_set_p        A,
+    file_p           msg,
+    size_t*          size,
+    const char*      mainbody,
+    int              sign
 );
 void print_clear_eml_na(eml_header_set_p S, file_p msg, file_p out);
-void print_clear_eml_a(eml_header_set_p S, att_set_p A, file_p msg, file_p out);
+void print_eml_a(
+    eml_header_set_p S,
+    att_set_p        A,
+    file_p           msg,
+    file_p           out,
+    const char*      mimebody,
+    int              sign
+);
 
 int main(int argc, char** argv)
 {
@@ -58,26 +76,37 @@ int main(int argc, char** argv)
     assert(ret == OK, ret, error_message);
 
     ret = att_set_init_by_args(&A, argc, argv);
-    assert(ret == OK, ret, "main: att_set_init_by_args");
+    assert(ret == OK, ret, error_message);
 
     ret = sign_spec_init_by_args(&SIGN, argc, argv);
-    assert(ret == OK, ret, "main: sign_spec_init_by_args");
+    assert(ret == OK, ret, error_message);
 
-    print_clear_eml(&clear_eml, &S, &A, &base_message, &clear_eml_size);
+    print_eml(
+        &clear_eml, &S, &A, &base_message, &clear_eml_size, MAIN_BODY_CLEAR, 0
+    );
 
     if (SIGN.sign)
     {
         sign_to_file(&enc_eml, &clear_eml, &enc_eml_size, SIGN.key);
+        /*
         ret = file_copy(&stdout_f, &enc_eml);
         assert(ret == OK, ret, "main: file copy");
+        */
 
-        exit(10);
+        att_set_init(&A);
+        att_set_add(&A, MIME_ENCVER, NULL, NULL);
+        att_set_add_file(&A, MIME_OCTETSTREAM, "encrypted.asc", &enc_eml);
+
+        ret = sign_create_autocrypt_header(&SIGN, &S);
+        assert(ret == OK, ret, error_message);
+
+        print_eml(&clear_eml, &S, &A, NULL, &clear_eml_size, MAIN_BODY_SIGN, 1);
+
+        file_close(&enc_eml);
     }
-    else
-    {
-        ret = file_copy(&stdout_f, &clear_eml);
-        assert(ret == OK, ret, "main: file copy");
-    }
+
+    ret = file_copy(&stdout_f, &clear_eml);
+    assert(ret == OK, ret, "main: file copy");
 
     if (ret)
         fprintf(stderr, "%s\n", error_message);
@@ -93,29 +122,38 @@ void get_rand_string(char* str, size_t n)
         str[n] = (char)('a' + ((unsigned)rand()) % 26);
 }
 
-void print_clear_eml(
-    file_p F, eml_header_set_p S, att_set_p A, file_p msg, size_t* size
+void print_eml(
+    file_p           F,
+    eml_header_set_p S,
+    att_set_p        A,
+    file_p           msg,
+    size_t*          size,
+    const char*      mainbody,
+    int              sign
 )
 {
-    int   res;
-    off_t maybe_size;
+    int                     res;
+    off_t                   maybe_size;
+    struct eml_header_set_t Scopy;
 
-    assert(size != NULL, FATAL_LOGIC, "print_clear_eml: illegal size");
+    assert(size != NULL, FATAL_LOGIC, "print_eml: illegal size");
 
     res = file_open_tmp(F);
-    assert(res == 0, res, "print_clear_eml: new tmp");
+    assert(res == 0, res, "print_eml: new tmp");
+
+    eml_header_set_copy(&Scopy, S);
 
     if (A->count == 0)
-        print_clear_eml_na(S, msg, F);
+        print_clear_eml_na(&Scopy, msg, F);
     else
-        print_clear_eml_a(S, A, msg, F);
+        print_eml_a(&Scopy, A, msg, F, mainbody, sign);
 
     maybe_size = file_cur(F);
-    assert(maybe_size >= 0, ERRNO_SPLIT + errno, "print_clear_eml: file cur");
+    assert(maybe_size >= 0, ERRNO_SPLIT + errno, "print_eml: file cur");
 
     *size = (size_t)maybe_size;
     res   = file_seek(F, 0, SEEK_SET);
-    assert(res == OK, res, "print_clear_eml: file seek set");
+    assert(res == OK, res, "print_eml: file seek set");
 }
 
 void print_clear_eml_na(eml_header_set_p S, file_p msg, file_p out)
@@ -141,32 +179,54 @@ void print_clear_eml_na(eml_header_set_p S, file_p msg, file_p out)
     bigstring_free(&content);
 }
 
-void print_clear_eml_a(eml_header_set_p S, att_set_p A, file_p msg, file_p out)
+void print_eml_a(
+    eml_header_set_p S,
+    att_set_p        A,
+    file_p           msg,
+    file_p           out,
+    const char*      mainbody,
+    int              sign
+)
 {
     /* Boundary */
     char raw_boundary[53]; /* Including trailing NUL */
-    char boundary_header[94];
+    char boundary_header[256];
 
     get_rand_string(raw_boundary, sizeof(raw_boundary) - sizeof(char));
     raw_boundary[52] = '\0';
 
-    strcpy(boundary_header, "multipart/mixed;\n boundary=\"------------");
-    memcpy(
-        boundary_header + 40, raw_boundary, sizeof(raw_boundary) - sizeof(char)
-    );
-    boundary_header[92] = '"';
-    boundary_header[93] = '\0';
+    if (sign)
+        strnappendv(
+            boundary_header,
+            sizeof(boundary_header),
+            "multipart/encrypted"
+            ";\n protocol=\"application/pgp-encrypted\""
+            ";\n boundary=\"------------",
+            raw_boundary,
+            "\"",
+            NULL
+        );
+    else
+        strnappendv(
+            boundary_header,
+            sizeof(boundary_header),
+            "multipart/mixed;\n boundary=\"------------",
+            raw_boundary,
+            "\"",
+            NULL
+        );
 
     eml_header_set_add(S, "Content-Type", boundary_header);
     eml_header_set_add(S, "MIME-Version", "1.0");
 
     eml_header_set_print(S, out);
-    file_write_strv(
-        out, "This is a multi-part message in MIME format.\n", NULL
-    );
+    file_write_str(out, mainbody);
 
-    att_set_add_file(A, "text/plain", "", msg);
-    att_set_set_body_index(A);
+    if (msg != NULL)
+    {
+        att_set_add_file(A, "text/plain", "", msg);
+        att_set_set_body_index(A);
+    }
 
     att_set_print(A, out, raw_boundary);
 }

@@ -58,6 +58,11 @@ int eml_header_set_add(eml_header_set_p S, const char* key, const char* value)
     return OK;
 }
 
+void eml_header_set_copy(eml_header_set_p dst, eml_header_set_p src)
+{
+    memcpy(dst, src, sizeof(struct eml_header_set_t));
+}
+
 int eml_header_set_init_by_args(eml_header_set_p S, int argc, char** argv)
 {
     int cur;
@@ -99,4 +104,19 @@ void eml_header_set_print(eml_header_set_p S, file_p F)
     }
 
     file_write_strv(F, "\n", NULL);
+}
+
+int eml_header_set_addv(eml_header_set_p S, const char* key, ...)
+{
+    va_list args;
+
+    va_start(args, key);
+
+    strncpy(S->H[S->count].key, key, MAX_HEADER_KEY_SIZE);
+    strnappendvv(S->H[S->count].value, MAX_HEADER_VALUE_SIZE, args);
+    ++S->count;
+
+    va_end(args);
+
+    return OK;
 }

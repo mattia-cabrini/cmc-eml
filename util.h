@@ -35,7 +35,8 @@ extern void wbuffer_init(wbuffer_p B, file_p F);
 extern void wbuffer_put(wbuffer_p B, char* buf, int sz);
 extern void wbuffer_flush(wbuffer_p B);
 
-extern int  strnappend(char* dst, const char* src, int n);
-extern void strnappendv(char* dst, int n, ...);
+extern int strnappend(char* dst, const char* src, int n);
+extern int strnappendv(char* dst, int n, ...);
+extern int strnappendvv(char* dst, int n, va_list args);
 
 #endif /* CMC_EML_UTIL_H_INCLUDED */

@@ -53,17 +53,46 @@ int att_init(att_p A, char* mime, char* filename, char* path)
 {
     A->F = NULL;
 
-    STRCPY_OR_TOOLONG(A->path, path, sizeof(A->path), "Path too long");
-    STRCPY_OR_TOOLONG(A->mime, mime, sizeof(A->mime), "Mime-Type too long");
-    STRCPY_OR_TOOLONG(
-        A->filename, filename, sizeof(A->filename), "Filename too long"
-    );
+    if (strcmp(mime, MIME_ENCVER) != 0 && (filename == NULL || path == NULL))
+    {
+        strncpy(
+            error_message,
+            "att_init: filname and path must be set",
+            MAX_ERROR_SIZE
+        );
+        return FATAL_LOGIC;
+    }
+
+    if (path != NULL)
+        STRCPY_OR_TOOLONG(A->path, path, sizeof(A->path), "Path too long")
+    else
+        *A->path = '\0';
+
+    STRCPY_OR_TOOLONG(A->mime, mime, sizeof(A->mime), "Mime-Type too long")
+
+    if (filename != NULL)
+        STRCPY_OR_TOOLONG(
+            A->filename, filename, sizeof(A->filename), "Filename too long"
+        )
+    else
+        *A->filename = '\0';
 
     return OK;
 }
 
 int att_init_file(att_p A, char* mime, char* filename, file_p F)
 {
+    if (strcmp(mime, MIME_ENCVER) != 0 &&
+        (filename == NULL || F == NULL || !file_is_init(F)))
+    {
+        strncpy(
+            error_message,
+            "att_init: filname and path must be set",
+            MAX_ERROR_SIZE
+        );
+        return FATAL_LOGIC;
+    }
+
     STRCPY_OR_TOOLONG(A->mime, mime, sizeof(A->mime), "Mime-Type too long");
     STRCPY_OR_TOOLONG(
         A->filename, filename, sizeof(A->filename), "Filename too long"
@@ -80,7 +109,7 @@ int att_print(att_p A, file_p F, const char* boundary, int body)
 
     file_write_strv(F, "Content-Type: ", A->mime, "; charset=UTF-8\n", NULL);
 
-    if (!body)
+    if (!body && *A->filename)
     {
         file_write_strv(
             F,
@@ -91,20 +120,33 @@ int att_print(att_p A, file_p F, const char* boundary, int body)
         );
     }
 
-    file_write_strv(F, "Content-Transfer-Encoding: base64\n\n", NULL);
-
-    if (!file_is_init(A->F))
+    if (strcmp(A->mime, MIME_ENCVER) == 0)
     {
-        ret = file_open(&tmp_file, A->path, O_RDWR, 0444);
-        if (ret < 0)
-            assert(0, ret, "att_print: open");
-
-        ret = base64_file_to_file(&tmp_file, F, 80);
-        file_close(&tmp_file);
+        ret = file_write_strv(
+            F,
+            "Content-Transfer-Encoding: 7bit\n",
+            "Content-Description: PGP/MIME version identification\n\n",
+            "Version: 1",
+            NULL
+        );
     }
     else
     {
-        ret = base64_file_to_file(A->F, F, 80);
+        file_write_strv(F, "Content-Transfer-Encoding: base64\n\n", NULL);
+
+        if (!file_is_init(A->F))
+        {
+            ret = file_open(&tmp_file, A->path, O_RDWR, 0444);
+            if (ret < 0)
+                assert(0, ret, "att_print: open");
+
+            ret = base64_file_to_file(&tmp_file, F, 80);
+            file_close(&tmp_file);
+        }
+        else
+        {
+            ret = base64_file_to_file(A->F, F, 80);
+        }
     }
 
     return_iferr(ret);
@@ -123,7 +165,7 @@ int att_set_add(att_set_p A, char* mime, char* filename, char* path)
     if (ret == OK)
         ++A->count;
 
-    return OK;
+    return ret;
 }
 
 int att_set_add_file(att_set_p A, char* mime, char* filename, file_p F)
@@ -135,7 +177,7 @@ int att_set_add_file(att_set_p A, char* mime, char* filename, file_p F)
     if (ret == OK)
         ++A->count;
 
-    return OK;
+    return ret;
 }
 
 void att_set_set_body_index(att_set_p A)
