@@ -18,7 +18,7 @@ static int bigstring_realloc(bigstring_p S)
 {
     S->buf = realloc(S->buf, S->size * 2);
 
-    if (errno)
+    if (S->buf == NULL)
         return errno + ERRNO_SPLIT;
 
     S->size *= 2;
@@ -34,7 +34,7 @@ int bigstring_init(bigstring_p S)
     S->max  = S->size / sizeof(char);
     S->buf  = (char*)malloc(BIGSTRING_START_SIZE);
 
-    if (errno)
+    if (S->buf == NULL)
         return errno + ERRNO_SPLIT;
 
     return OK;
@@ -113,9 +113,6 @@ int bigstring_free(bigstring_p S)
     S->cur  = -1;
     S->max  = 0;
     S->size = 0;
-
-    if (errno)
-        return errno + ERRNO_SPLIT;
 
     return OK;
 }

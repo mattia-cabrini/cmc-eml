@@ -25,7 +25,7 @@
 #define BUFFER_FULL 1001
 #define STRING_TOO_LONG 1002
 
-/* For errors such as x > 1e+6, the acctual error is errno = x - 10e+6 */
+/* For errors such as x > 1e+6, the actual error is errno = x - 10e+6 */
 #define ERRNO_SPLIT 1000000
 
 #define MAX_ERROR_SIZE 1024

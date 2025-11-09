@@ -188,7 +188,7 @@ int sign_spec_init_by_args(sign_spec_p S, int argc, char** argv)
 #endif
         }
 
-        if (strcmp(argv[cur], "-s:k") == 0 ||
+        if (strcmp(argv[cur], "-s:kd") == 0 ||
             strcmp(argv[cur], "--sign:keydata") == 0)
         {
             if (argc <= cur + 1)

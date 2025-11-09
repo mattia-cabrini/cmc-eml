@@ -88,13 +88,23 @@ int strnappend(char* dst, const char* src, int n)
 {
     int on = n;
 
-    for (; n > 0 && *src; --n)
+    if (n <= 0)
+        return -1;
+
+    /* Copy until n > 1 in order to leave space for NUL */
+    for (; n > 1 && *src; --n)
     {
         *dst = *src;
 
         ++dst;
         ++src;
     }
+
+    /* At least one character has not been copied -> error */
+    if (*src)
+        return -1;
+
+    *dst = '\0';
 
     return *src ? -1 : on - n;
 }
@@ -111,9 +121,15 @@ int strnappendv(char* dst, int n, ...)
 
 int strnappendvv(char* dst, int n, va_list args)
 {
-    int         cp   = 0;
-    int         cpin = 0;
-    const char* str  = NULL;
+    /* Number of non-NUL characters copied so far.
+     * If cpin is -1 cp is undefined.
+     */
+    int cp = 0;
+
+    /* Number of non-NUL character copied by a single strnappend call. */
+    int cpin        = 0;
+
+    const char* str = NULL;
 
     while (cpin >= 0 && (str = va_arg(args, const char*)) != NULL)
     {

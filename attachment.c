@@ -57,7 +57,7 @@ int att_init(att_p A, char* mime, char* filename, char* path)
     {
         strncpy(
             error_message,
-            "att_init: filname and path must be set",
+            "att_init: filename and path must be set",
             MAX_ERROR_SIZE
         );
         return FATAL_LOGIC;
@@ -87,7 +87,7 @@ int att_init_file(att_p A, char* mime, char* filename, file_p F)
     {
         strncpy(
             error_message,
-            "att_init: filname and path must be set",
+            "att_init: filename and path must be set",
             MAX_ERROR_SIZE
         );
         return FATAL_LOGIC;
