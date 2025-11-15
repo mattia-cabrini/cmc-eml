@@ -107,7 +107,7 @@ int att_print(att_p A, file_p F, const char* boundary, int body)
     int           ret = OK;
     struct file_t tmp_file;
 
-    file_write_strv(F, "Content-Type: ", A->mime, "; charset=UTF-8\n", NULL);
+    file_write_strv(F, "Content-Type: ", A->mime, "; charset=UTF-8\r\n", NULL);
 
     if (!body && *A->filename)
     {
@@ -115,7 +115,7 @@ int att_print(att_p A, file_p F, const char* boundary, int body)
             F,
             "Content-Disposition: attachment; filename=\"",
             A->filename,
-            "\"\n",
+            "\"\r\n",
             NULL
         );
     }
@@ -124,15 +124,15 @@ int att_print(att_p A, file_p F, const char* boundary, int body)
     {
         ret = file_write_strv(
             F,
-            "Content-Transfer-Encoding: 7bit\n",
-            "Content-Description: PGP/MIME version identification\n\n",
+            "Content-Transfer-Encoding: 7bit\r\n",
+            "Content-Description: PGP/MIME version identification\r\n\r\n",
             "Version: 1",
             NULL
         );
     }
     else
     {
-        file_write_strv(F, "Content-Transfer-Encoding: base64\n\n", NULL);
+        file_write_strv(F, "Content-Transfer-Encoding: base64\r\n\r\n", NULL);
 
         if (!file_is_init(A->F))
         {
@@ -151,7 +151,7 @@ int att_print(att_p A, file_p F, const char* boundary, int body)
 
     return_iferr(ret);
 
-    file_write_strv(F, "\n\n--------------", boundary, "\n", NULL);
+    file_write_strv(F, "\r\n\r\n--------------", boundary, "\r\n", NULL);
 
     return OK;
 }
@@ -192,7 +192,7 @@ int att_set_print(att_set_p A, file_p F, char* boundary)
     int cur;
     int ret = OK;
 
-    file_write_strv(F, "--------------", boundary, "\n", NULL);
+    file_write_strv(F, "--------------", boundary, "\r\n", NULL);
 
     if (A->body_index > 0)
     {

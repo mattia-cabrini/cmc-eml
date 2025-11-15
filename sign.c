@@ -319,7 +319,7 @@ int sign_create_autocrypt_header(sign_spec_p SIGN, eml_header_set_p S)
         {
             line[rb]    = '\0';
             left += res = strnappendv(
-                str + left, MAX_HEADER_VALUE_SIZE - left, "\n ", line, NULL
+                str + left, MAX_HEADER_VALUE_SIZE - left, "\r\n ", line, NULL
             );
 
             if (res < 0)

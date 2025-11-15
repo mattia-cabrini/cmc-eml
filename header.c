@@ -17,7 +17,7 @@ void eml_header_init(eml_header_p H)
 
 void eml_header_print(eml_header_p H, file_p F)
 {
-    file_write_strv(F, H->key, ": ", H->value, "\n", NULL);
+    file_write_strv(F, H->key, ": ", H->value, "\r\n", NULL);
 }
 
 void eml_header_set_init(eml_header_set_p S)
@@ -98,7 +98,7 @@ void eml_header_set_print(eml_header_set_p S, file_p F)
         eml_header_print(S->H + cur, F);
     }
 
-    file_write_strv(F, "\n", NULL);
+    file_write_strv(F, "\r\n", NULL);
 }
 
 int eml_header_set_addv(eml_header_set_p S, const char* key, ...)

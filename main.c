@@ -24,9 +24,9 @@
 #include "sign.h"
 #include "util.h"
 
-#define MAIN_BODY_CLEAR "This is a multi-part message in MIME format.\n"
+#define MAIN_BODY_CLEAR "This is a multi-part message in MIME format.\r\n"
 #define MAIN_BODY_SIGN                                                         \
-    "This is an OpenPGP/MIME encrypted message (RFC 4880 and 3156)\n"
+    "This is an OpenPGP/MIME encrypted message (RFC 4880 and 3156)\r\n"
 #define MIME_OCTETSTREAM "application/octet-stream"
 
 void get_rand_string(char*, size_t);
@@ -200,8 +200,8 @@ void print_eml_a(
             boundary_header,
             sizeof(boundary_header),
             "multipart/encrypted"
-            ";\n protocol=\"application/pgp-encrypted\""
-            ";\n boundary=\"------------",
+            ";\r\n protocol=\"application/pgp-encrypted\""
+            ";\r\n boundary=\"------------",
             raw_boundary,
             "\"",
             NULL
@@ -210,7 +210,7 @@ void print_eml_a(
         strnappendv(
             boundary_header,
             sizeof(boundary_header),
-            "multipart/mixed;\n boundary=\"------------",
+            "multipart/mixed;\r\n boundary=\"------------",
             raw_boundary,
             "\"",
             NULL
