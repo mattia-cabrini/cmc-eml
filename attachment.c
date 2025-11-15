@@ -138,7 +138,16 @@ int att_print(att_p A, file_p F, const char* boundary, int body)
         {
             ret = file_open(&tmp_file, A->path, O_RDWR, 0444);
             if (ret != 0)
-                assert(0, ret, "att_print: open");
+            {
+                strnappendv(
+                    error_message,
+                    MAX_ERROR_SIZE,
+                    "att_print: open; ",
+                    A->path,
+                    NULL
+                );
+                assert(0, ret, error_message);
+            }
 
             ret = base64_file_to_file(&tmp_file, F, 80);
             file_close(&tmp_file);
