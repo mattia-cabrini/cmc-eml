@@ -25,7 +25,7 @@ int att_set_init_by_args(att_set_p A, int argc, char** argv)
 
     att_set_init(A);
 
-    for (cur = 0; cur < argc && A->count < MAX_ATTACHMENTS; ++cur)
+    for (cur = 0; cur < argc; ++cur)
     {
         if (strcmp(argv[cur], "-a") != 0 && strcmp(argv[cur], "--attach") != 0)
             continue; /* Not an header */
@@ -137,7 +137,7 @@ int att_print(att_p A, file_p F, const char* boundary, int body)
         if (!file_is_init(A->F))
         {
             ret = file_open(&tmp_file, A->path, O_RDWR, 0444);
-            if (ret < 0)
+            if (ret != 0)
                 assert(0, ret, "att_print: open");
 
             ret = base64_file_to_file(&tmp_file, F, 80);
@@ -160,7 +160,10 @@ int att_set_add(att_set_p A, char* mime, char* filename, char* path)
 {
     int ret = OK;
 
-    ret     = att_init(&A->attachments[A->count], mime, filename, path);
+    if (A->count == MAX_ATTACHMENTS)
+        return BUFFER_FULL;
+
+    ret = att_init(&A->attachments[A->count], mime, filename, path);
 
     if (ret == OK)
         ++A->count;
@@ -172,7 +175,10 @@ int att_set_add_file(att_set_p A, char* mime, char* filename, file_p F)
 {
     int ret = OK;
 
-    ret     = att_init_file(&A->attachments[A->count], mime, filename, F);
+    if (A->count == MAX_ATTACHMENTS)
+        return BUFFER_FULL;
+
+    ret = att_init_file(&A->attachments[A->count], mime, filename, F);
 
     if (ret == OK)
         ++A->count;

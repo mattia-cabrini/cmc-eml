@@ -87,7 +87,8 @@ int main(int argc, char** argv)
 
     if (SIGN.sign)
     {
-        sign_to_file(&enc_eml, &clear_eml, &enc_eml_size, SIGN.key);
+        sign_to_file(&SIGN, &enc_eml, &clear_eml, &enc_eml_size, SIGN.key);
+
         /*
         ret = file_copy(&stdout_f, &enc_eml);
         assert(ret == OK, ret, "main: file copy");
@@ -174,7 +175,7 @@ void print_clear_eml_na(eml_header_set_p S, file_p msg, file_p out)
     eml_header_set_add(S, "Content-Length", content_length);
 
     eml_header_set_print(S, out);
-    file_write_strv(out, content.buf, NULL);
+    file_write(out, content.buf, (size_t)content.cur * sizeof(char));
 
     bigstring_free(&content);
 }

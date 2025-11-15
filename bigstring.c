@@ -16,10 +16,21 @@ static int bigstring_realloc(bigstring_p);
 
 static int bigstring_realloc(bigstring_p S)
 {
-    S->buf = realloc(S->buf, S->size * 2);
+    char* tmp;
+    tmp = realloc(S->buf, S->size * 2);
 
-    if (S->buf == NULL)
+    if (tmp == NULL)
+    {
+        free(S->buf);
+        S->buf  = NULL;
+        S->cur  = -1;
+        S->size = 0;
+        S->max  = 0;
+
         return errno + ERRNO_SPLIT;
+    }
+
+    S->buf = tmp;
 
     S->size *= 2;
     S->max = S->size / sizeof(char);
@@ -86,7 +97,7 @@ int bigstring_append(bigstring_p S, char* str)
             ret = bigstring_realloc(S);
     }
 
-    return OK;
+    return ret;
 }
 
 /* NULL-value terminated */
