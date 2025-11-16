@@ -41,7 +41,9 @@ int att_set_init_by_args(att_set_p A, int argc, char** argv)
             return FATAL_PARAM;
         }
 
-        ret = att_set_add(A, argv[cur + 1], argv[cur + 2], argv[cur + 3]);
+        ret = att_set_add(
+            A, argv[cur + 1], argv[cur + 2], argv[cur + 3], ATT_FMT_BASE64
+        );
         if (ret)
             return ret;
     }
@@ -49,9 +51,10 @@ int att_set_init_by_args(att_set_p A, int argc, char** argv)
     return OK;
 }
 
-int att_init(att_p A, char* mime, char* filename, char* path)
+int att_init(att_p A, char* mime, char* filename, char* path, int fmt)
 {
-    A->F = NULL;
+    A->F   = NULL;
+    A->fmt = fmt;
 
     if (strcmp(mime, MIME_ENCVER) != 0 && (filename == NULL || path == NULL))
     {
@@ -80,7 +83,7 @@ int att_init(att_p A, char* mime, char* filename, char* path)
     return OK;
 }
 
-int att_init_file(att_p A, char* mime, char* filename, file_p F)
+int att_init_file(att_p A, char* mime, char* filename, file_p F, int fmt)
 {
     if (strcmp(mime, MIME_ENCVER) != 0 &&
         (filename == NULL || F == NULL || !file_is_init(F)))
@@ -102,7 +105,8 @@ int att_init_file(att_p A, char* mime, char* filename, file_p F)
     else
         *A->filename = '\0';
 
-    A->F = F;
+    A->F   = F;
+    A->fmt = fmt;
 
     return OK;
 }
@@ -125,11 +129,20 @@ int att_print(att_p A, file_p F, const char* boundary, int body)
         );
     }
 
+    switch (A->fmt)
+    {
+    case ATT_FMT_BASE64:
+        ret = file_write_strv(F, "Content-Transfer-Encoding: base64\r\n", NULL);
+        break;
+    case ATT_FMT_7BIT:
+        ret = file_write_strv(F, "Content-Transfer-Encoding: 7bit\r\n", NULL);
+        break;
+    }
+
     if (strcmp(A->mime, MIME_ENCVER) == 0)
     {
         ret = file_write_strv(
             F,
-            "Content-Transfer-Encoding: 7bit\r\n",
             "Content-Description: PGP/MIME version identification\r\n\r\n",
             "Version: 1",
             NULL
@@ -137,7 +150,7 @@ int att_print(att_p A, file_p F, const char* boundary, int body)
     }
     else
     {
-        file_write_strv(F, "Content-Transfer-Encoding: base64\r\n\r\n", NULL);
+        file_write_strv(F, "\r\n", NULL);
 
         if (!file_is_init(A->F))
         {
@@ -154,12 +167,29 @@ int att_print(att_p A, file_p F, const char* boundary, int body)
                 assert(0, ret, error_message);
             }
 
-            ret = base64_file_to_file(&tmp_file, F, 80);
+            switch (A->fmt)
+            {
+            case ATT_FMT_BASE64:
+                ret = base64_file_to_file(&tmp_file, F, 80);
+                break;
+            case ATT_FMT_7BIT:
+                ret = file_copy(F, &tmp_file);
+                break;
+            }
+
             file_close(&tmp_file);
         }
         else
         {
-            ret = base64_file_to_file(A->F, F, 80);
+            switch (A->fmt)
+            {
+            case ATT_FMT_BASE64:
+                ret = base64_file_to_file(A->F, F, 80);
+                break;
+            case ATT_FMT_7BIT:
+                ret = file_copy(F, A->F);
+                break;
+            }
         }
     }
 
@@ -170,14 +200,14 @@ int att_print(att_p A, file_p F, const char* boundary, int body)
     return OK;
 }
 
-int att_set_add(att_set_p A, char* mime, char* filename, char* path)
+int att_set_add(att_set_p A, char* mime, char* filename, char* path, int fmt)
 {
     int ret = OK;
 
     if (A->count == MAX_ATTACHMENTS)
         return BUFFER_FULL;
 
-    ret = att_init(&A->attachments[A->count], mime, filename, path);
+    ret = att_init(&A->attachments[A->count], mime, filename, path, fmt);
 
     if (ret == OK)
         ++A->count;
@@ -185,14 +215,14 @@ int att_set_add(att_set_p A, char* mime, char* filename, char* path)
     return ret;
 }
 
-int att_set_add_file(att_set_p A, char* mime, char* filename, file_p F)
+int att_set_add_file(att_set_p A, char* mime, char* filename, file_p F, int fmt)
 {
     int ret = OK;
 
     if (A->count == MAX_ATTACHMENTS)
         return BUFFER_FULL;
 
-    ret = att_init_file(&A->attachments[A->count], mime, filename, F);
+    ret = att_init_file(&A->attachments[A->count], mime, filename, F, fmt);
 
     if (ret == OK)
         ++A->count;

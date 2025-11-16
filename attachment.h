@@ -14,11 +14,18 @@
 
 #include <stdio.h>
 
+enum
+{
+    ATT_FMT_BASE64,
+    ATT_FMT_7BIT
+};
+
 typedef struct att_t
 {
     char   path[MAX_PATH_SIZE];
     char   mime[MAX_MIME_SIZE];
     char   filename[MAX_PATH_SIZE];
+    int    fmt;
     file_p F;
 }* att_p;
 
@@ -29,14 +36,16 @@ typedef struct att_set_t
     int          body_index;
 }* att_set_p;
 
-extern int att_init(att_p, char* mime, char* filename, char* path);
-extern int att_init_file(att_p, char* mime, char* filename, file_p F);
+extern int att_init(att_p, char* mime, char* filename, char* path, int fmt);
+extern int att_init_file(att_p, char* mime, char* filename, file_p F, int fmt);
 extern int att_print(att_p, file_p, const char* boundary, int body);
 
 extern void att_set_init(att_set_p);
 extern int  att_set_init_by_args(att_set_p, int argc, char** argv);
-extern int  att_set_add(att_set_p, char* mime, char* filename, char* path);
-extern int  att_set_add_file(att_set_p, char* mime, char* filename, file_p F);
+extern int
+att_set_add(att_set_p, char* mime, char* filename, char* path, int fmt);
+extern int
+att_set_add_file(att_set_p, char* mime, char* filename, file_p F, int fmt);
 extern void att_set_set_body_index(att_set_p);
 extern int  att_set_print(att_set_p, file_p, char* boundary);
 

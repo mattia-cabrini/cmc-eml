@@ -94,8 +94,10 @@ int main(int argc, char** argv)
         */
 
         att_set_init(&A);
-        att_set_add(&A, MIME_ENCVER, NULL, NULL);
-        att_set_add_file(&A, MIME_OCTETSTREAM, "encrypted.asc", &enc_eml);
+        att_set_add(&A, MIME_ENCVER, NULL, NULL, ATT_FMT_7BIT);
+        att_set_add_file(
+            &A, MIME_OCTETSTREAM, "encrypted.asc", &enc_eml, ATT_FMT_7BIT
+        );
 
         ret = sign_create_autocrypt_header(&SIGN, &S);
         assert(ret == OK, ret, error_message);
@@ -218,7 +220,7 @@ void print_eml_a(
 
     if (msg != NULL)
     {
-        att_set_add_file(A, "text/plain", "", msg);
+        att_set_add_file(A, "text/plain", "", msg, ATT_FMT_BASE64);
         att_set_set_body_index(A);
     }
 
