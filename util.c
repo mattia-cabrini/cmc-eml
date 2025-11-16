@@ -33,6 +33,8 @@ ssize_t rbuffer_read(rbuffer_p B, char* dst, ssize_t sz)
 {
     int dst_i = 0;
 
+    assert(sz > 0, FATAL_LOGIC, "rbuffer_read: size <= 0");
+
     for (dst_i = 0; dst_i < sz;)
     {
         if (B->cur == B->count)
@@ -86,7 +88,8 @@ void wbuffer_flush(wbuffer_p B)
 
 int strnappend(char* dst, const char* src, int n)
 {
-    int on = n;
+    char* o_dst = dst;
+    int   on    = n;
 
     if (n <= 0)
         return -1;
@@ -102,7 +105,10 @@ int strnappend(char* dst, const char* src, int n)
 
     /* At least one character has not been copied -> error */
     if (*src)
+    {
+        *o_dst = '\0';
         return -1;
+    }
 
     *dst = '\0';
 
@@ -137,5 +143,14 @@ int strnappendvv(char* dst, int n, va_list args)
         cp += cpin;
     }
 
+    if (cpin < 0)
+        *dst = '\0';
+
     return cpin < 0 ? cpin : cp;
+}
+
+void get_rand_string(char* str, size_t n)
+{
+    while (n--)
+        str[n] = (char)('a' + ((unsigned)rand()) % 26);
 }

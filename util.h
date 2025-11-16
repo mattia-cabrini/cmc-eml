@@ -47,7 +47,7 @@ extern void wbuffer_flush(wbuffer_p B);
  * Otherwise, return the number of non-NUL characters copied into `dst`.
  *
  * WARNING
- * If -1 is returned, `dst` content is undefined.
+ * If -1 is returned, `dst` is set to empty string.
  */
 extern int strnappend(char* dst, const char* src, int n);
 
@@ -69,8 +69,17 @@ extern int strnappendv(char* dst, int n, ...);
  * Otherwise, return the number of non-NUL character copied into `dst`.
  *
  * WARNING
- * If -1 is returned, `dst` content is undefined.
+ * If -1 is returned, `dst` is set to empty string.
  */
 extern int strnappendvv(char* dst, int n, va_list args);
+
+/**
+ * Set all 'n' character in the buffer `buf` to an ASCII character between 'a'
+ * and 'z'.
+ *
+ * The resulting buffer will not be NUL-terminated and therefore will not be a
+ * valid C-string.
+ */
+void get_rand_string(char* buf, size_t n);
 
 #endif /* CMC_EML_UTIL_H_INCLUDED */

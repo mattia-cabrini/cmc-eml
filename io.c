@@ -43,7 +43,7 @@ int file_open(file_p F, const char* path, int flags, mode_t mode)
         "DEBUG open fd %d with flags %d and mode %d\n",
         F->fd,
         flags,
-        mode
+        (int)mode
     );
 #endif
 
@@ -89,7 +89,7 @@ ssize_t file_read(file_p F, char* buf, size_t max)
     res = read(F->fd, buf, max);
 
 #ifdef DEBUG
-    fprintf(stderr, "DEBUG read %ld bytes from fd %d\n", res, F->fd);
+    fprintf(stderr, "DEBUG read %d bytes from fd %d\n", (int)res, F->fd);
 #endif
 
     return res;
@@ -137,10 +137,10 @@ int file_write(file_p F, const char* buf, size_t count)
 #ifdef DEBUG
     fprintf(
         stderr,
-        "DEBUG written %ld bytes from fd %d; requested %lu\n",
-        written,
+        "DEBUG written %d bytes from fd %d; requested %d\n",
+        (int)written,
         F->fd,
-        count
+        (int)count
     );
 #endif
 
@@ -214,10 +214,10 @@ int file_seek(file_p F, off_t off, int whence)
 #ifdef DEBUG
     fprintf(
         stderr,
-        "DEBUG seek on fd %d; off: %ld; whence: %d\n",
+        "DEBUG seek on fd %d; off: %d; whence: %d\n",
         F->fd,
-        off,
-        whence
+        (int)off,
+        (int)whence
     );
 #endif
 
@@ -237,7 +237,7 @@ off_t file_cur(file_p F)
         stderr,
         "DEBUG file_cur: seek on fd %d; off: 0; whence: %d\n",
         F->fd,
-        SEEK_CUR
+        (int)SEEK_CUR
     );
 #endif
 
@@ -247,10 +247,13 @@ off_t file_cur(file_p F)
 int file_isreg(file_p F)
 {
     struct stat s;
+    int         res;
 
     assert(F != NULL, FATAL_LOGIC, "file_isreg: invalid file");
 
-    fstat(F->fd, &s);
+    res = fstat(F->fd, &s);
+    assert(res == 0, errno + ERRNO_SPLIT, "file_isreg: fstat: could not stat");
+
     return S_ISREG(s.st_mode);
 }
 

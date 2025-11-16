@@ -19,11 +19,11 @@ enum
 
 typedef struct sign_spec_t
 {
-    int  sign;
-    char key[SIGN_MAX_KEY_SIZE];
-    char keydata_path[256];
-    char keypwd_path[256];
-    int  preference;
+    int  sign;                   /* if true, the eml should be encrypted */
+    char key[SIGN_MAX_KEY_SIZE]; /* key name */
+    char keydata_path[256];      /* key data path for eml header */
+    char keypwd_path[256];       /* key password file */
+    int  preference; /* sign preference for eml header (default NO) */
 }* sign_spec_p;
 
 extern int  sign_spec_init_by_args(sign_spec_p S, int argc, char** argv);

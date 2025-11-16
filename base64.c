@@ -118,13 +118,19 @@ int base64_file_to_file(file_p in, file_p out, int line_length)
     char three[3]         = {0};
 
     ssize_t rw_bytes      = 0;
-    int     current_ll    = 4;
+    int     current_ll    = 0;
     int     to_print_part = 0;
 
     struct rbuffer_t file_in;
     struct wbuffer_t file_out;
 
     int res;
+
+    assert(
+        line_length >= 4,
+        FATAL_LOGIC,
+        "base64_file_to_file: line_length too small"
+    );
 
     rbuffer_init(&file_in, in);
     wbuffer_init(&file_out, out);
@@ -153,10 +159,10 @@ int base64_file_to_file(file_p in, file_p out, int line_length)
         else
         {
             wbuffer_put(&file_out, buf, sizeof(buf));
+            current_ll += 4;
         }
 
         three[0] = three[1] = three[2] = '\0';
-        current_ll += 4;
     }
 
     wbuffer_flush(&file_out);

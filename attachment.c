@@ -94,9 +94,14 @@ int att_init_file(att_p A, char* mime, char* filename, file_p F)
     }
 
     STRCPY_OR_TOOLONG(A->mime, mime, sizeof(A->mime), "Mime-Type too long");
-    STRCPY_OR_TOOLONG(
-        A->filename, filename, sizeof(A->filename), "Filename too long"
-    );
+
+    if (filename != NULL)
+        STRCPY_OR_TOOLONG(
+            A->filename, filename, sizeof(A->filename), "Filename too long"
+        )
+    else
+        *A->filename = '\0';
+
     A->F = F;
 
     return OK;
@@ -136,7 +141,7 @@ int att_print(att_p A, file_p F, const char* boundary, int body)
 
         if (!file_is_init(A->F))
         {
-            ret = file_open(&tmp_file, A->path, O_RDWR, 0444);
+            ret = file_open(&tmp_file, A->path, O_RDONLY, 0444);
             if (ret != 0)
             {
                 strnappendv(

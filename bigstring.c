@@ -80,9 +80,11 @@ int bigstring_append_file(bigstring_p S, file_p F)
     return ret;
 }
 
-int bigstring_append(bigstring_p S, char* str)
+int bigstring_append(bigstring_p S, const char* str)
 {
     int ret = OK;
+
+    assert(str != NULL, FATAL_LOGIC, "bigstring_append: str not valid");
 
     while (*str && ret == OK)
     {
@@ -103,13 +105,13 @@ int bigstring_append(bigstring_p S, char* str)
 /* NULL-value terminated */
 int bigstring_appendv(bigstring_p S, ...)
 {
-    va_list args;
-    char*   str;
-    int     ret = OK;
+    va_list     args;
+    const char* str;
+    int         ret = OK;
 
     va_start(args, S);
 
-    while (!ret && (str = va_arg(args, char*)) != NULL)
+    while (ret == OK && (str = va_arg(args, const char*)) != NULL)
     {
         ret = bigstring_append(S, str);
     }

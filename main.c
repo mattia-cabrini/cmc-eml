@@ -29,7 +29,6 @@
     "This is an OpenPGP/MIME encrypted message (RFC 4880 and 3156)\r\n"
 #define MIME_OCTETSTREAM "application/octet-stream"
 
-void get_rand_string(char*, size_t);
 void print_eml(
     file_p           F,
     eml_header_set_p S,
@@ -117,12 +116,6 @@ int main(int argc, char** argv)
     return ret;
 }
 
-void get_rand_string(char* str, size_t n)
-{
-    while (n--)
-        str[n] = (char)('a' + ((unsigned)rand()) % 26);
-}
-
 void print_eml(
     file_p           F,
     eml_header_set_p S,
@@ -171,7 +164,7 @@ void print_clear_eml_na(eml_header_set_p S, file_p msg, file_p out)
     ret = bigstring_append_file(&content, msg);
     assert(ret == OK, ret, error_message);
 
-    sprintf(content_length, "%ld", content.cur);
+    sprintf(content_length, "%d", (int)content.cur);
     eml_header_set_add(S, "Content-Length", content_length);
 
     eml_header_set_print(S, out);

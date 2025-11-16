@@ -91,8 +91,11 @@ void sign_to_file(
     file_close(&key_pwdfile);
     assert(res == OK, res, error_message);
 
-    strncpy(key_pwdcstr, key_password.buf, sizeof(key_pwdcstr));
-    key_pwdcstr[SIGN_MAX_KEY_SIZE - 1] = '\0';
+    if (key_password.cur > SIGN_MAX_KEY_SIZE - 1)
+        assert(0, FATAL_SIGSEGV, "sign_to_file: key password too long");
+
+    strncpy(key_pwdcstr, key_password.buf, (size_t)key_password.cur);
+    key_pwdcstr[key_password.cur] = '\0';
     bigstring_free(&key_password);
 
     gpgme_set_passphrase_cb(ctx, passphrase_cb, (void*)key_pwdcstr);
@@ -168,8 +171,10 @@ int sign_spec_init_by_args(sign_spec_p S, int argc, char** argv)
     int cur;
 
     S->sign          = 0;
+    *S->key          = '\0';
     *S->keydata_path = '\0';
     *S->keypwd_path  = '\0';
+    S->preference    = SIGN_PREFER_NO;
 
     for (cur = 1; cur < argc; ++cur)
     {
@@ -319,6 +324,17 @@ int sign_spec_init_by_args(sign_spec_p S, int argc, char** argv)
             fprintf(stderr, "Sign:Key Password File `%s`\n", S->keypwd_path);
 #endif
         }
+    }
+
+    if (S->sign && *S->key == '\0')
+    {
+        strnappendv(
+            error_message,
+            MAX_ERROR_SIZE,
+            "sign required but no key provided",
+            NULL
+        );
+        return FATAL_PARAM;
     }
 
     return OK;

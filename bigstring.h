@@ -20,11 +20,17 @@ typedef struct bigstring_t
 
 extern int bigstring_init(bigstring_p);
 
-extern int bigstring_append(bigstring_p, char*);
-extern int bigstring_append_file(bigstring_p, file_p F);
+/**
+ * Append the NUL-terminated string `str` to B.
+ */
+extern int bigstring_append(bigstring_p B, const char* str);
+extern int bigstring_append_file(bigstring_p B, file_p F);
 
-/* NULL-value terminated */
-extern int bigstring_appendv(bigstring_p, ...);
+/**
+ * Append to B a list of NUL-terminated strings.
+ * The variadic list must be NULL-terminated.
+ */
+extern int bigstring_appendv(bigstring_p B, ...);
 
 extern int bigstring_free(bigstring_p);
 
