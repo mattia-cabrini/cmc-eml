@@ -8,6 +8,7 @@
 #define MAX_HEADER_VALUE_SIZE (4096 - 64)
 #define MAX_HEADERS 64
 
+#include "comm.h"
 #include "io.h"
 
 #include <stdio.h>
@@ -33,6 +34,7 @@ extern int eml_header_set_init_by_args(eml_header_set_p, int argc, char** argv);
 extern int eml_header_set_addv(eml_header_set_p, const char*, ...);
 extern int
 eml_header_set_add(eml_header_set_p, const char* key, const char* value);
+extern int  eml_header_set_add_by_command(eml_header_set_p, const int* command);
 extern void eml_header_set_print(eml_header_set_p, file_p F);
 
 #endif /* CMC_EML_HEADER_H_INCLUDED */

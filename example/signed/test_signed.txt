@@ -1,0 +1,8 @@
+do=add-header key=From value="dev@mattiacabrini.com"
+do=add-header key=To value="info@mattiacabrini.com"
+do=add-header key=Subject value=Test
+
+do=print-signed-eml clear-message="test.eml" signature="test.eml.asc" path="test_signed.eml"
+
+do=quit
+

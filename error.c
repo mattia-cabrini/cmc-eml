@@ -15,7 +15,9 @@ void error_setgpg(gpgme_error_t err)
     ret = strnappendv(
         error_message,
         MAX_ERROR_SIZE,
+        "GPGME error: SRC ",
         gpgme_strsource(err),
+        "; ERR ",
         gpgme_strerror(err),
         NULL
     );
@@ -29,7 +31,7 @@ void error_setgpg(gpgme_error_t err)
 #ifdef DEBUG
     fprintf(
         stderr,
-        "DEBUG error_setgpg: constructed error message: %s",
+        "DEBUG error_setgpg: constructed error message: %s\n",
         error_message
     );
 #endif

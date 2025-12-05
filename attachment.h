@@ -10,14 +10,18 @@
 #define MAX_MIME_SIZE 64
 #define MAX_ATTACHMENTS 512
 
+#include "comm.h"
 #include "io.h"
 
 #include <stdio.h>
 
+/* Transfer Formats */
 enum
 {
-    ATT_FMT_BASE64,
-    ATT_FMT_7BIT
+    ATT_FMT_LBOUND = 0,
+    ATT_FMT_BASE64 = 1,
+    ATT_FMT_7BIT   = 2,
+    ATT_FMT_UBOUND = 3
 };
 
 typedef struct att_t
@@ -25,7 +29,7 @@ typedef struct att_t
     char   path[MAX_PATH_SIZE];
     char   mime[MAX_MIME_SIZE];
     char   filename[MAX_PATH_SIZE];
-    int    fmt;
+    int    fmt; /* Transfer format */
     file_p F;
 }* att_p;
 
@@ -36,16 +40,25 @@ typedef struct att_set_t
     int          body_index;
 }* att_set_p;
 
-extern int att_init(att_p, char* mime, char* filename, char* path, int fmt);
-extern int att_init_file(att_p, char* mime, char* filename, file_p F, int fmt);
-extern int att_print(att_p, file_p, const char* boundary, int body);
+extern const char* ATT_SIGNATURE_FILENAME;
+extern const char* ATT_NOMIME;
+
+extern int att_init(
+    att_p, const char* mime, const char* filename, const char* path, int fmt
+);
+extern int
+att_init_file(att_p, const char* mime, const char* filename, file_p F, int fmt);
+extern int att_print(att_p, file_p, const char* boundary, int body, int last);
 
 extern void att_set_init(att_set_p);
 extern int  att_set_init_by_args(att_set_p, int argc, char** argv);
-extern int
-att_set_add(att_set_p, char* mime, char* filename, char* path, int fmt);
-extern int
-att_set_add_file(att_set_p, char* mime, char* filename, file_p F, int fmt);
+extern int  att_set_add(
+     att_set_p, const char* mime, const char* filename, const char* path, int fmt
+ );
+extern int att_set_add_file(
+    att_set_p, const char* mime, const char* filename, file_p F, int fmt
+);
+extern int  att_set_add_by_command(att_set_p, int* comm_arena, int is_body);
 extern void att_set_set_body_index(att_set_p);
 extern int  att_set_print(att_set_p, file_p, char* boundary);
 

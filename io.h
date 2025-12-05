@@ -12,7 +12,8 @@
 
 typedef struct file_t
 {
-    int fd;
+    int     fd;
+    ssize_t last_rb; /* Undefined behaviour if no read has been attempted yet */
 }* file_p;
 
 extern void file_set_null(file_p F);
@@ -33,7 +34,8 @@ extern int file_copy(file_p dst, file_p src);
 extern int   file_seek(file_p F, off_t off, int whence);
 extern off_t file_cur(file_p F);
 
-extern int file_isreg(file_p F);
+extern int     file_isreg(file_p F);
+extern ssize_t file_last_rb(file_p F);
 
 extern void file_close(file_p F);
 

@@ -2,6 +2,6 @@
 #define _GNU_SOURCE
 #endif
 
-#ifdef __apple__
+#ifdef __APPLE__
 #define _BSD_SOURCE
 #endif

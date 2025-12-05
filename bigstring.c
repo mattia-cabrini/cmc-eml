@@ -6,6 +6,7 @@
 #include "io.h"
 
 #include <errno.h>
+#include <limits.h>
 #include <stdarg.h>
 #include <string.h>
 #include <unistd.h>
@@ -17,6 +18,12 @@ static int bigstring_realloc(bigstring_p);
 static int bigstring_realloc(bigstring_p S)
 {
     char* tmp;
+
+    if (S->size > SSIZE_MAX / 2)
+    {
+        return EOVERFLOW + ERRNO_SPLIT;
+    }
+
     tmp = realloc(S->buf, S->size * 2);
 
     if (tmp == NULL)
@@ -123,6 +130,7 @@ int bigstring_appendv(bigstring_p S, ...)
 int bigstring_free(bigstring_p S)
 {
     free(S->buf);
+    S->buf  = NULL;
     S->cur  = -1;
     S->max  = 0;
     S->size = 0;

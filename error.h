@@ -1,14 +1,19 @@
 /* Copyright (c) 2025 Mattia Cabrini */
 /* SPDX-License-Identifier: MIT      */
 
-#ifndef CMC_EML_FATAL_H_INCLUDED
-#define CMC_EML_FATAL_H_INCLUDED
+#ifndef CMC_EML_ERROR_H_INCLUDED
+#define CMC_EML_ERROR_H_INCLUDED
 
 #include <errno.h>
 #include <gpgme.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+/*
+ * Not an error
+ */
+#define NOT_AN_ERROR -1
 
 /* [0, 1000]
  * OK and FATAL(s)
@@ -24,6 +29,8 @@
  */
 #define BUFFER_FULL 1001
 #define STRING_TOO_LONG 1002
+#define ILLEGAL_FORMAT 1003
+#define NOT_FOUND 1004
 
 /* For errors such as x > 1e+6, the actual error is errno = x - 10e+6 */
 #define ERRNO_SPLIT 1000000
@@ -41,6 +48,14 @@ extern void error_setgpg(gpgme_error_t err);
         }                                                                      \
     }
 
+#define return_void_iferr(ret)                                                 \
+    {                                                                          \
+        if ((ret))                                                             \
+        {                                                                      \
+            return;                                                            \
+        }                                                                      \
+    }
+
 #define assert(cond, code, msg)                                                \
     {                                                                          \
         if (!(cond))                                                           \
@@ -54,7 +69,7 @@ extern void error_setgpg(gpgme_error_t err);
                     msg                                                        \
                 );                                                             \
             else                                                               \
-                fprintf(stderr, "%s\n", msg);                                  \
+                fprintf(stderr, "ERROR %d: %s\n", (code), msg);                \
                                                                                \
             exit(code);                                                        \
         }                                                                      \
@@ -74,4 +89,17 @@ extern void error_setgpg(gpgme_error_t err);
         }                                                                      \
     }
 
-#endif /* CMC_EML_FATAL_H_INCLUDED */
+#define arr_assign_cont(V, index, N, val, STAT_VAR)                            \
+    {                                                                          \
+        if ((int)(index) >= (int)(N))                                          \
+        {                                                                      \
+            STAT_VAR = 1002;                                                   \
+            continue;                                                          \
+        }                                                                      \
+        else                                                                   \
+        {                                                                      \
+            (V)[(index)] = (val);                                              \
+        }                                                                      \
+    }
+
+#endif /* CMC_EML_ERROR_H_INCLUDED */

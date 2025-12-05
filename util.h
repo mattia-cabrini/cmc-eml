@@ -35,6 +35,17 @@ extern void wbuffer_init(wbuffer_p B, file_p F);
 extern void wbuffer_put(wbuffer_p B, char* buf, int sz);
 extern void wbuffer_flush(wbuffer_p B);
 
+#define sizeof_i(TYPE) ((int)sizeof(TYPE))
+
+/** Takes a pointer (PTR) and adds to it N bytes and converts the result to
+ * TYPE*.
+ *
+ * WARNING:
+ * - NO BOUND CHECK
+ * - N is casted to int
+ */
+#define ptr_add_bytes(TYPE, PTR, N) ((TYPE*)(((char*)PTR) + (int)N))
+
 /**
  * Copy at most n non-NUL character from src to `dst`.
  * An additional NUL is copied into `dst` in order to let `dst` be a valid
@@ -81,5 +92,14 @@ extern int strnappendvv(char* dst, int n, va_list args);
  * valid C-string.
  */
 void get_rand_string(char* buf, size_t n);
+
+/**
+ * Macros to simplify string switch
+ */
+#define STR_SWITCH_INIT()                                                      \
+    if (0)                                                                     \
+        (void)0;
+#define STR_IF_EQ(v1, v2) else if (strcmp((v1), (v2)) == 0)
+#define STR_ELSE() else
 
 #endif /* CMC_EML_UTIL_H_INCLUDED */

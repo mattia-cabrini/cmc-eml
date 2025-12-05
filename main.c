@@ -18,170 +18,108 @@
 #include "attachment.h"
 #include "base64.h"
 #include "bigstring.h"
+#include "comm.h"
 #include "error.h"
 #include "header.h"
 #include "io.h"
-#include "sign.h"
 #include "util.h"
 
 #define MAIN_BODY_CLEAR "This is a multi-part message in MIME format.\r\n"
 #define MAIN_BODY_SIGN                                                         \
-    "This is an OpenPGP/MIME encrypted message (RFC 4880 and 3156)\r\n"
+    "This is an OpenPGP/MIME signed message (RFC 4880 and 3156)"
 #define MIME_OCTETSTREAM "application/octet-stream"
 
-void print_eml(
-    file_p           F,
-    eml_header_set_p S,
-    att_set_p        A,
-    file_p           msg,
-    size_t*          size,
-    const char*      mainbody,
-    int              sign
-);
-void print_clear_eml_na(eml_header_set_p S, file_p msg, file_p out);
-void print_eml_a(
-    eml_header_set_p S,
-    att_set_p        A,
-    file_p           msg,
-    file_p           out,
-    const char*      mimebody,
-    int              sign
+typedef struct global_data_t
+{
+    struct file_t stdout_f;
+    struct file_t stdin_f;
+
+    struct eml_header_set_t S;
+    struct att_set_t        A;
+    /* struct sign_spec_t   SIGN; */
+}* global_data_p;
+
+static void global_data_init(global_data_p);
+
+static int print_clear_eml_by_command(global_data_p GD, int* comm_arena);
+static int print_signed_eml_by_command(global_data_p GD, int* comm_arena);
+
+static void print_eml_a(
+    eml_header_set_p S, att_set_p A, file_p out, const char* mimebody, int sign
 );
 
 int main(int argc, char** argv)
 {
-    int                     ret;
-    struct eml_header_set_t S;
-    struct att_set_t        A;
-    struct sign_spec_t      SIGN;
+    int ret = OK;
 
-    struct file_t base_message;
-    struct file_t stdout_f;
-    struct file_t clear_eml;
-    struct file_t enc_eml;
+    struct global_data_t GD;
+    struct comm_t        command;
+    int                  comm_arena[1024];
 
-    size_t enc_eml_size   = 0;
-    size_t clear_eml_size = 0;
+    (void)argc;
+    (void)argv;
 
-    srand((unsigned int)time(NULL));
-    file_set_fd(&base_message, 0);
-    file_set_fd(&stdout_f, 1);
+    srand((unsigned int)(time(NULL) + getpid()));
+    global_data_init(&GD);
 
 #ifdef DEBUG
     base64_test_ALPHABET();
 #endif
 
-    ret = eml_header_set_init_by_args(&S, argc, argv);
-    assert(ret == OK, ret, error_message);
-
-    ret = att_set_init_by_args(&A, argc, argv);
-    assert(ret == OK, ret, error_message);
-
-    ret = sign_spec_init_by_args(&SIGN, argc, argv);
-    assert(ret == OK, ret, error_message);
-
-    print_eml(
-        &clear_eml, &S, &A, &base_message, &clear_eml_size, MAIN_BODY_CLEAR, 0
-    );
-
-    if (SIGN.sign)
+    do
     {
-        sign_to_file(&SIGN, &enc_eml, &clear_eml, &enc_eml_size, SIGN.key);
-
-        /*
-        ret = file_copy(&stdout_f, &enc_eml);
-        assert(ret == OK, ret, "main: file copy");
-        */
-
-        att_set_init(&A);
-        att_set_add(&A, MIME_ENCVER, NULL, NULL, ATT_FMT_7BIT);
-        att_set_add_file(
-            &A, MIME_OCTETSTREAM, "encrypted.asc", &enc_eml, ATT_FMT_7BIT
-        );
-
-        ret = sign_create_autocrypt_header(&SIGN, &S);
+        ret = comm_next(&GD.stdin_f, comm_arena, 1024);
         assert(ret == OK, ret, error_message);
 
-        print_eml(&clear_eml, &S, &A, NULL, &clear_eml_size, MAIN_BODY_SIGN, 1);
+        if (comm_get(comm_arena, "do", &command) == NOT_FOUND ||
+            command.value == NULL)
+        {
+            assert(0, FATAL_LOGIC, "No `do` command provided.");
+            continue;
+        }
 
-        file_close(&enc_eml);
-    }
+        STR_SWITCH_INIT()
 
-    ret = file_copy(&stdout_f, &clear_eml);
-    assert(ret == OK, ret, "main: file copy");
+        STR_IF_EQ(command.value, "quit") break;
 
-    if (ret)
-        fprintf(stderr, "%s\n", error_message);
+        STR_IF_EQ(command.value, "add-header")
+        ret = eml_header_set_add_by_command(&GD.S, comm_arena);
 
-    file_close(&clear_eml);
+        STR_IF_EQ(command.value, "add-attachment")
+        ret = att_set_add_by_command(&GD.A, comm_arena, 0);
+
+        STR_IF_EQ(command.value, "set-body")
+        ret = att_set_add_by_command(&GD.A, comm_arena, 1);
+
+        STR_IF_EQ(command.value, "print-clear-eml")
+        ret = print_clear_eml_by_command(&GD, comm_arena);
+
+        STR_IF_EQ(command.value, "print-signed-eml")
+        ret = print_signed_eml_by_command(&GD, comm_arena);
+
+        STR_IF_EQ(command.value, "clear")
+        global_data_init(&GD);
+
+        STR_ELSE()
+        {
+            ret = FATAL_LOGIC;
+            strnappendv(
+                error_message,
+                MAX_ERROR_SIZE,
+                "`",
+                command.value,
+                "` not implemented, yet"
+            );
+        }
+
+        assert(ret == OK, ret, error_message);
+    } while (file_last_rb(&GD.stdin_f) > 0);
 
     return ret;
 }
 
-void print_eml(
-    file_p           F,
-    eml_header_set_p S,
-    att_set_p        A,
-    file_p           msg,
-    size_t*          size,
-    const char*      mainbody,
-    int              sign
-)
-{
-    int                     res;
-    off_t                   maybe_size;
-    struct eml_header_set_t Scopy;
-
-    assert(size != NULL, FATAL_LOGIC, "print_eml: illegal size");
-
-    res = file_open_tmp(F);
-    assert(res == 0, res, "print_eml: new tmp");
-
-    eml_header_set_copy(&Scopy, S);
-
-    if (A->count == 0)
-        print_clear_eml_na(&Scopy, msg, F);
-    else
-        print_eml_a(&Scopy, A, msg, F, mainbody, sign);
-
-    maybe_size = file_cur(F);
-    assert(maybe_size >= 0, ERRNO_SPLIT + errno, "print_eml: file cur");
-
-    *size = (size_t)maybe_size;
-    res   = file_seek(F, 0, SEEK_SET);
-    assert(res == OK, res, "print_eml: file seek set");
-}
-
-void print_clear_eml_na(eml_header_set_p S, file_p msg, file_p out)
-{
-    int ret;
-
-    /* Main content */
-    struct bigstring_t content;
-    char               content_length[16];
-
-    ret = bigstring_init(&content);
-    assert(ret == OK, ret, error_message);
-
-    ret = bigstring_append_file(&content, msg);
-    assert(ret == OK, ret, error_message);
-
-    sprintf(content_length, "%d", (int)content.cur);
-    eml_header_set_add(S, "Content-Length", content_length);
-
-    eml_header_set_print(S, out);
-    file_write(out, content.buf, (size_t)content.cur * sizeof(char));
-
-    bigstring_free(&content);
-}
-
-void print_eml_a(
-    eml_header_set_p S,
-    att_set_p        A,
-    file_p           msg,
-    file_p           out,
-    const char*      mainbody,
-    int              sign
+static void print_eml_a(
+    eml_header_set_p S, att_set_p A, file_p out, const char* mainbody, int sign
 )
 {
     /* Boundary */
@@ -195,8 +133,9 @@ void print_eml_a(
         strnappendv(
             boundary_header,
             sizeof(boundary_header),
-            "multipart/encrypted"
-            ";\r\n protocol=\"application/pgp-encrypted\""
+            "multipart/signed"
+            ";\r\n protocol=\"application/pgp-signature\""
+            ";\r\n micalg=pgp-sha256"
             ";\r\n boundary=\"------------",
             raw_boundary,
             "\"",
@@ -218,11 +157,95 @@ void print_eml_a(
     eml_header_set_print(S, out);
     file_write_str(out, mainbody);
 
-    if (msg != NULL)
+    att_set_print(A, out, raw_boundary);
+}
+
+static void global_data_init(global_data_p GD)
+{
+    file_set_fd(&GD->stdin_f, 0);
+    file_set_fd(&GD->stdout_f, 1);
+
+    eml_header_set_init(&GD->S);
+    att_set_init(&GD->A);
+}
+
+static int print_clear_eml_by_command(global_data_p GD, int* comm_arena)
+{
+    int                     ret;
+    struct comm_t           path_c;
+    struct eml_header_set_t Scopy;
+    struct file_t           out;
+
+    if (comm_get(comm_arena, "path", &path_c) == NOT_FOUND ||
+        path_c.value == NULL)
     {
-        att_set_add_file(A, "text/plain", "", msg, ATT_FMT_BASE64);
-        att_set_set_body_index(A);
+        ret = ILLEGAL_FORMAT;
+        strncpy(error_message, "no path provided", MAX_ERROR_SIZE);
+        return ret;
     }
 
-    att_set_print(A, out, raw_boundary);
+    ret = file_open(&out, path_c.value, O_RDWR | O_CREAT | O_TRUNC, 0644);
+    return_iferr(ret);
+
+    eml_header_set_copy(&Scopy, &GD->S);
+
+    print_eml_a(&Scopy, &GD->A, &out, MAIN_BODY_CLEAR, 0);
+
+    file_close(&out);
+
+    return ret;
+}
+
+static int print_signed_eml_by_command(global_data_p GD, int* comm_arena)
+{
+    int                     ret;
+    struct comm_t           path_c;
+    struct comm_t           clear_path_c;
+    struct comm_t           sign_path_c;
+    struct eml_header_set_t Scopy;
+    struct file_t           out;
+
+    if (comm_get(comm_arena, "clear-message", &clear_path_c) == NOT_FOUND ||
+        clear_path_c.value == NULL)
+    {
+        ret = ILLEGAL_FORMAT;
+        strncpy(error_message, "no clear-message provided", MAX_ERROR_SIZE);
+        return ret;
+    }
+
+    if (comm_get(comm_arena, "signature", &sign_path_c) == NOT_FOUND ||
+        sign_path_c.value == NULL)
+    {
+        ret = ILLEGAL_FORMAT;
+        strncpy(error_message, "no signature provided", MAX_ERROR_SIZE);
+        return ret;
+    }
+
+    if (comm_get(comm_arena, "path", &path_c) == NOT_FOUND ||
+        path_c.value == NULL)
+    {
+        ret = ILLEGAL_FORMAT;
+        strncpy(error_message, "no path provided", MAX_ERROR_SIZE);
+        return ret;
+    }
+
+    att_set_add(&GD->A, ATT_NOMIME, "", clear_path_c.value, ATT_FMT_7BIT);
+    att_set_add(
+        &GD->A,
+        "application/pgp-signature",
+        ATT_SIGNATURE_FILENAME,
+        sign_path_c.value,
+        ATT_FMT_7BIT
+    );
+
+    ret = file_open(&out, path_c.value, O_RDWR | O_CREAT | O_TRUNC, 0644);
+    return_iferr(ret);
+
+    eml_header_set_copy(&Scopy, &GD->S);
+
+    print_eml_a(&Scopy, &GD->A, &out, MAIN_BODY_SIGN, 1);
+
+    file_close(&out);
+
+    return ret;
 }

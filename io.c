@@ -83,16 +83,14 @@ void file_set_fd(file_p F, int fd)
 
 ssize_t file_read(file_p F, char* buf, size_t max)
 {
-    ssize_t res;
-
     assert(F != NULL, FATAL_LOGIC, "file_read: invalid file");
-    res = read(F->fd, buf, max);
+    F->last_rb = read(F->fd, buf, max);
 
 #ifdef DEBUG
-    fprintf(stderr, "DEBUG read %d bytes from fd %d\n", (int)res, F->fd);
+    fprintf(stderr, "DEBUG read %d bytes from fd %d\n", (int)F->last_rb, F->fd);
 #endif
 
-    return res;
+    return F->last_rb;
 }
 
 int file_write(file_p F, const char* buf, size_t count)
@@ -264,3 +262,5 @@ void file_close(file_p F)
     close(F->fd);
     F->fd = -1;
 }
+
+ssize_t file_last_rb(file_p F) { return F->last_rb; }

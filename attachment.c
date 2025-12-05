@@ -11,6 +11,13 @@
 #include <string.h>
 #include <unistd.h>
 
+#ifdef DEBUG
+static void att_dump(att_p A);
+#endif
+
+const char* ATT_SIGNATURE_FILENAME = "OpenPGP_signature.asc";
+const char* ATT_NOMIME             = "NOMIME";
+
 void att_set_init(att_set_p A)
 {
     memset(A, 0, sizeof(A->attachments));
@@ -51,7 +58,9 @@ int att_set_init_by_args(att_set_p A, int argc, char** argv)
     return OK;
 }
 
-int att_init(att_p A, char* mime, char* filename, char* path, int fmt)
+int att_init(
+    att_p A, const char* mime, const char* filename, const char* path, int fmt
+)
 {
     A->F   = NULL;
     A->fmt = fmt;
@@ -83,7 +92,9 @@ int att_init(att_p A, char* mime, char* filename, char* path, int fmt)
     return OK;
 }
 
-int att_init_file(att_p A, char* mime, char* filename, file_p F, int fmt)
+int att_init_file(
+    att_p A, const char* mime, const char* filename, file_p F, int fmt
+)
 {
     if (strcmp(mime, MIME_ENCVER) != 0 &&
         (filename == NULL || F == NULL || !file_is_init(F)))
@@ -105,102 +116,152 @@ int att_init_file(att_p A, char* mime, char* filename, file_p F, int fmt)
     else
         *A->filename = '\0';
 
-    A->F   = F;
-    A->fmt = fmt;
+    A->path[0] = '\0';
+    A->F       = F;
+    A->fmt     = fmt;
 
     return OK;
 }
 
-int att_print(att_p A, file_p F, const char* boundary, int body)
+int att_print(att_p A, file_p F, const char* boundary, int body, int last)
 {
     int           ret = OK;
+    int           nomime;
     struct file_t tmp_file;
 
-    file_write_strv(F, "Content-Type: ", A->mime, "; charset=UTF-8\r\n", NULL);
+#ifdef DEBUG
+    if (body)
+        fprintf(stderr, "Printing body...\n");
+    else
+        fprintf(stderr, "Printing attachment...\n");
+    att_dump(A);
+#endif
 
-    if (!body && *A->filename)
+    nomime = strcmp(A->mime, ATT_NOMIME) == 0;
+    if (!nomime)
     {
-        file_write_strv(
-            F,
-            "Content-Disposition: attachment; filename=\"",
-            A->filename,
-            "\"\r\n",
-            NULL
-        );
+        file_write_strv(F, "Content-Type: ", A->mime, NULL);
+
+        if (strcmp(A->mime, "application/pgp-signature") == 0)
+            file_write_strv(F, "; name=\"signature.asc\"\r\n", NULL);
+        else
+            file_write_strv(F, "; charset=UTF-8\r\n", NULL);
+
+        if (!body && *A->filename)
+        {
+            if (strcmp(A->filename, ATT_SIGNATURE_FILENAME) == 0)
+                file_write_strv(
+                    F,
+                    "Content-Description: OpenPGP digital signature\r\n",
+                    "Content-Disposition: attachment; filename=\"",
+                    A->filename,
+                    "\"\r\n",
+                    NULL
+                );
+            else
+                file_write_strv(
+                    F,
+                    "Content-Disposition: attachment; filename=\"",
+                    A->filename,
+                    "\"\r\n",
+                    NULL
+                );
+        }
+
+        switch (A->fmt)
+        {
+        case ATT_FMT_BASE64:
+            ret = file_write_strv(
+                F, "Content-Transfer-Encoding: base64\r\n", NULL
+            );
+            break;
+        case ATT_FMT_7BIT:
+            ret =
+                file_write_strv(F, "Content-Transfer-Encoding: 7bit\r\n", NULL);
+            break;
+        }
+
+        file_write_strv(F, "\r\n", NULL);
     }
 
-    switch (A->fmt)
+    if (!file_is_init(A->F))
     {
-    case ATT_FMT_BASE64:
-        ret = file_write_strv(F, "Content-Transfer-Encoding: base64\r\n", NULL);
-        break;
-    case ATT_FMT_7BIT:
-        ret = file_write_strv(F, "Content-Transfer-Encoding: 7bit\r\n", NULL);
-        break;
-    }
+        ret = file_open(&tmp_file, A->path, O_RDONLY, 0444);
+        if (ret != 0)
+        {
+            strnappendv(
+                error_message,
+                MAX_ERROR_SIZE,
+                "att_print: open; ",
+                A->path,
+                NULL
+            );
+            assert(0, ret, error_message);
+        }
 
-    if (strcmp(A->mime, MIME_ENCVER) == 0)
-    {
-        ret = file_write_strv(
-            F,
-            "Content-Description: PGP/MIME version identification\r\n\r\n",
-            "Version: 1",
-            NULL
-        );
+        switch (A->fmt)
+        {
+        case ATT_FMT_BASE64:
+            ret = base64_file_to_file(&tmp_file, F, 80);
+            break;
+        case ATT_FMT_7BIT:
+            ret = file_copy(F, &tmp_file);
+            break;
+        }
+
+        file_close(&tmp_file);
     }
     else
     {
-        file_write_strv(F, "\r\n", NULL);
-
-        if (!file_is_init(A->F))
+        switch (A->fmt)
         {
-            ret = file_open(&tmp_file, A->path, O_RDONLY, 0444);
-            if (ret != 0)
-            {
-                strnappendv(
-                    error_message,
-                    MAX_ERROR_SIZE,
-                    "att_print: open; ",
-                    A->path,
-                    NULL
-                );
-                assert(0, ret, error_message);
-            }
-
-            switch (A->fmt)
-            {
-            case ATT_FMT_BASE64:
-                ret = base64_file_to_file(&tmp_file, F, 80);
-                break;
-            case ATT_FMT_7BIT:
-                ret = file_copy(F, &tmp_file);
-                break;
-            }
-
-            file_close(&tmp_file);
-        }
-        else
-        {
-            switch (A->fmt)
-            {
-            case ATT_FMT_BASE64:
-                ret = base64_file_to_file(A->F, F, 80);
-                break;
-            case ATT_FMT_7BIT:
-                ret = file_copy(F, A->F);
-                break;
-            }
+        case ATT_FMT_BASE64:
+            ret = base64_file_to_file(A->F, F, 80);
+            break;
+        case ATT_FMT_7BIT:
+            ret = file_copy(F, A->F);
+            break;
         }
     }
 
+    /* In case of body to sign, a trailing <CR><LF> is needed to clearly
+     * separate the signed body and the boundary */
+    if (nomime)
+        file_write_strv(F, "\r\n", NULL);
+
     return_iferr(ret);
 
-    file_write_strv(F, "\r\n\r\n--------------", boundary, "\r\n", NULL);
+    if (!nomime)
+    {
+        file_write_str(F, "\r\n");
+
+        switch (A->fmt)
+        {
+        case ATT_FMT_7BIT:
+            break;
+        default:
+            file_write_str(F, "\r\n");
+            break;
+        }
+    }
+
+    file_write_strv(F, "--------------", boundary, NULL);
+
+    if (last)
+        file_write_str(F, "--");
+
+    file_write_str(F, "\r\n");
 
     return OK;
 }
 
-int att_set_add(att_set_p A, char* mime, char* filename, char* path, int fmt)
+int att_set_add(
+    att_set_p   A,
+    const char* mime,
+    const char* filename,
+    const char* path,
+    int         fmt
+)
 {
     int ret = OK;
 
@@ -209,13 +270,19 @@ int att_set_add(att_set_p A, char* mime, char* filename, char* path, int fmt)
 
     ret = att_init(&A->attachments[A->count], mime, filename, path, fmt);
 
+#ifdef DEBUG
+    att_dump(&A->attachments[A->count]);
+#endif
+
     if (ret == OK)
         ++A->count;
 
     return ret;
 }
 
-int att_set_add_file(att_set_p A, char* mime, char* filename, file_p F, int fmt)
+int att_set_add_file(
+    att_set_p A, const char* mime, const char* filename, file_p F, int fmt
+)
 {
     int ret = OK;
 
@@ -230,33 +297,128 @@ int att_set_add_file(att_set_p A, char* mime, char* filename, file_p F, int fmt)
     return ret;
 }
 
+int att_set_add_by_command(att_set_p A, int* COMM, int is_body)
+{
+    int ret = OK;
+    int fmt = ATT_FMT_LBOUND;
+
+    struct comm_t mime_c;
+    struct comm_t filename_c;
+    struct comm_t path_c;
+    struct comm_t fmt_c;
+
+    if (ret == OK)
+        if (comm_get(COMM, "mime-type", &mime_c) == NOT_FOUND ||
+            mime_c.value == NULL)
+        {
+            ret = NOT_FOUND;
+            strncpy(error_message, "no mime-type provided", MAX_ERROR_SIZE);
+        }
+
+    if (ret == OK && !is_body)
+        if (comm_get(COMM, "filename", &filename_c) == NOT_FOUND ||
+            filename_c.value == NULL)
+        {
+            ret = NOT_FOUND;
+            strncpy(error_message, "no filename provided", MAX_ERROR_SIZE);
+        }
+
+    if (ret == OK)
+        if (comm_get(COMM, "path", &path_c) == NOT_FOUND ||
+            path_c.value == NULL)
+        {
+            ret = NOT_FOUND;
+            strncpy(error_message, "no path provided", MAX_ERROR_SIZE);
+        }
+
+    if (ret == OK)
+    {
+        if (comm_get(COMM, "fmt", &fmt_c) != NOT_FOUND)
+        {
+            if (fmt_c.value != NULL)
+                fmt = fmt_c.value[0] - '0';
+
+            if (fmt_c.value == NULL || strlen(fmt_c.value) != 1 ||
+                fmt <= ATT_FMT_LBOUND || fmt >= ATT_FMT_UBOUND)
+            {
+                ret = ILLEGAL_FORMAT;
+                strncpy(error_message, "invalid fmt provided", MAX_ERROR_SIZE);
+            }
+        }
+        else
+        {
+            fmt = ATT_FMT_BASE64;
+        }
+    }
+
+    if (ret == OK)
+    {
+        if (is_body)
+            ret = att_set_add(A, mime_c.value, "", path_c.value, fmt);
+        else
+            ret = att_set_add(
+                A, mime_c.value, filename_c.value, path_c.value, fmt
+            );
+    }
+
+    if (ret == OK && is_body)
+        att_set_set_body_index(A);
+
+    return ret;
+}
+
 void att_set_set_body_index(att_set_p A)
 {
     assert(A->count > 0, FATAL_LOGIC, "att_set_set_body_index: count = 0");
 
     A->body_index = A->count - 1;
+#ifdef DEBUG
+    fprintf(stderr, "Body Index set to: %d...\n", A->body_index);
+    att_dump(&A->attachments[A->body_index]);
+#endif
 }
 
 int att_set_print(att_set_p A, file_p F, char* boundary)
 {
     int cur;
+    int index_of_last_att;
     int ret = OK;
 
     file_write_strv(F, "--------------", boundary, "\r\n", NULL);
 
-    if (A->body_index > 0)
+    if (A->body_index >= 0)
     {
         assert(
             A->body_index < A->count,
             FATAL_LOGIC,
             "att_set_print: body index out of bound"
         );
-        ret = att_print(A->attachments + A->body_index, F, boundary, 1);
+        ret = att_print(
+            A->attachments + A->body_index, F, boundary, 1, A->count == 1
+        );
     }
+
+    if (A->body_index == A->count - 1)
+        index_of_last_att = A->body_index - 1;
+    else
+        index_of_last_att = A->count - 1;
 
     for (cur = 0; ret == OK && cur < A->count; ++cur)
         if (cur != A->body_index)
-            ret = att_print(A->attachments + cur, F, boundary, 0);
+            ret = att_print(
+                A->attachments + cur, F, boundary, 0, cur == index_of_last_att
+            );
 
     return ret;
 }
+
+#ifdef DEBUG
+static void att_dump(att_p A)
+{
+    fprintf(stderr, "Path:      `%s`\n", A->path);
+    fprintf(stderr, "Mime-Type: `%s`\n", A->mime);
+    fprintf(stderr, "Filename:  `%s`\n", A->filename);
+    fprintf(stderr, "Fmt:       `%d`\n", A->fmt);
+    fprintf(stderr, "Omitted File...\n");
+}
+#endif

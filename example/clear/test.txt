@@ -1,0 +1,9 @@
+do=add-header key=From value="dev@mattiacabrini.com"
+do=add-header key=To value="info@mattiacabrini.com"
+do=add-header key=Subject value=Test
+do=set-body path="body.txt" fmt=1 mime-type="text/plain"
+do=add-attachment path="a.txt" filename="1.txt" fmt=1 mime-type="text/plain"
+do=add-attachment path="b.txt" filename="2.txt" fmt=1 mime-type="text/plain"
+do=print-clear-eml path="test.eml"
+do=quit
+

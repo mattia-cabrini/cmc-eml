@@ -31,6 +31,9 @@ void eml_header_set_init(eml_header_set_p S)
 
 int eml_header_set_add(eml_header_set_p S, const char* key, const char* value)
 {
+    if (value == NULL)
+        value = "";
+
     if (S->count == MAX_HEADERS)
     {
         strncpy(error_message, "too many headers", MAX_ERROR_SIZE);
@@ -51,6 +54,42 @@ int eml_header_set_add(eml_header_set_p S, const char* key, const char* value)
     ++S->count;
 
     return OK;
+}
+
+int eml_header_set_add_by_command(eml_header_set_p S, const int* command)
+{
+    int res = OK;
+
+    struct comm_t key_c;
+    struct comm_t value_c;
+
+    switch ((res = comm_get(command, "key", &key_c)))
+    {
+    case OK:
+        switch (comm_get(command, "value", &value_c))
+        {
+        case NOT_FOUND:
+            eml_header_set_add(S, key_c.value, "");
+            break;
+        case OK:
+            eml_header_set_add(S, key_c.value, value_c.value);
+            break;
+        }
+        break;
+
+    case NOT_FOUND:
+        strncpy(
+            error_message,
+            "eml_header_set_add_by_command: no key provided",
+            MAX_ERROR_SIZE
+        );
+        return NOT_FOUND;
+
+    default:
+        return res;
+    }
+
+    return res;
 }
 
 void eml_header_set_copy(eml_header_set_p dst, eml_header_set_p src)

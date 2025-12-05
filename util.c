@@ -31,7 +31,7 @@ static void rbuffer_next(rbuffer_p B)
 
 ssize_t rbuffer_read(rbuffer_p B, char* dst, ssize_t sz)
 {
-    int dst_i = 0;
+    ssize_t dst_i = 0;
 
     assert(sz > 0, FATAL_LOGIC, "rbuffer_read: size <= 0");
 
