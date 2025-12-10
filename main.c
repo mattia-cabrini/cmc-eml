@@ -26,7 +26,7 @@
 
 #define MAIN_BODY_CLEAR "This is a multi-part message in MIME format.\r\n"
 #define MAIN_BODY_SIGN                                                         \
-    "This is an OpenPGP/MIME signed message (RFC 4880 and 3156)"
+    "This is an OpenPGP/MIME signed message (RFC 4880 and 3156)\r\n"
 #define MIME_OCTETSTREAM "application/octet-stream"
 
 typedef struct global_data_t
