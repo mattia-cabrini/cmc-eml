@@ -6,10 +6,8 @@
 #include "error.h"
 #include "util.h"
 
-#include <errno.h>
 #include <fcntl.h>
 #include <string.h>
-#include <unistd.h>
 
 #ifdef DEBUG
 static void att_dump(att_p A);
@@ -25,39 +23,6 @@ void att_set_init(att_set_p A)
     A->body_index = -1;
 }
 
-int att_set_init_by_args(att_set_p A, int argc, char** argv)
-{
-    int cur;
-    int ret;
-
-    att_set_init(A);
-
-    for (cur = 0; cur < argc; ++cur)
-    {
-        if (strcmp(argv[cur], "-a") != 0 && strcmp(argv[cur], "--attach") != 0)
-            continue; /* Not an header */
-
-        if (argc <= cur + 3)
-        {
-            sprintf(
-                error_message,
-                "Not enough parameters. #%d introduces an attachment, but no "
-                "mime-type, file name and path is provided.",
-                cur
-            );
-            return FATAL_PARAM;
-        }
-
-        ret = att_set_add(
-            A, argv[cur + 1], argv[cur + 2], argv[cur + 3], ATT_FMT_BASE64
-        );
-        if (ret)
-            return ret;
-    }
-
-    return OK;
-}
-
 int att_init(
     att_p A, const char* mime, const char* filename, const char* path, int fmt
 )
@@ -65,13 +30,9 @@ int att_init(
     A->F   = NULL;
     A->fmt = fmt;
 
-    if (strcmp(mime, MIME_ENCVER) != 0 && (filename == NULL || path == NULL))
+    if (mime == NULL)
     {
-        strncpy(
-            error_message,
-            "att_init: filename and path must be set",
-            MAX_ERROR_SIZE
-        );
+        strncpy(error_message, "att_init: empty mime", MAX_ERROR_SIZE);
         return FATAL_LOGIC;
     }
 
@@ -88,37 +49,6 @@ int att_init(
         )
     else
         *A->filename = '\0';
-
-    return OK;
-}
-
-int att_init_file(
-    att_p A, const char* mime, const char* filename, file_p F, int fmt
-)
-{
-    if (strcmp(mime, MIME_ENCVER) != 0 &&
-        (filename == NULL || F == NULL || !file_is_init(F)))
-    {
-        strncpy(
-            error_message,
-            "att_init: filename and path must be set",
-            MAX_ERROR_SIZE
-        );
-        return FATAL_LOGIC;
-    }
-
-    STRCPY_OR_TOOLONG(A->mime, mime, sizeof(A->mime), "Mime-Type too long");
-
-    if (filename != NULL)
-        STRCPY_OR_TOOLONG(
-            A->filename, filename, sizeof(A->filename), "Filename too long"
-        )
-    else
-        *A->filename = '\0';
-
-    A->path[0] = '\0';
-    A->F       = F;
-    A->fmt     = fmt;
 
     return OK;
 }
@@ -140,17 +70,19 @@ int att_print(att_p A, file_p F, const char* boundary, int body, int last)
     nomime = strcmp(A->mime, ATT_NOMIME) == 0;
     if (!nomime)
     {
-        file_write_strv(F, "Content-Type: ", A->mime, NULL);
+        ret = file_write_strv(F, "Content-Type: ", A->mime, NULL);
+        return_iferr(ret);
 
         if (strcmp(A->mime, "application/pgp-signature") == 0)
-            file_write_strv(F, "; name=\"signature.asc\"\r\n", NULL);
+            ret = file_write_strv(F, "; name=\"signature.asc\"\r\n", NULL);
         else
-            file_write_strv(F, "; charset=UTF-8\r\n", NULL);
+            ret = file_write_strv(F, "; charset=UTF-8\r\n", NULL);
+        return_iferr(ret);
 
         if (!body && *A->filename)
         {
             if (strcmp(A->filename, ATT_SIGNATURE_FILENAME) == 0)
-                file_write_strv(
+                ret = file_write_strv(
                     F,
                     "Content-Description: OpenPGP digital signature\r\n",
                     "Content-Disposition: attachment; filename=\"",
@@ -159,13 +91,15 @@ int att_print(att_p A, file_p F, const char* boundary, int body, int last)
                     NULL
                 );
             else
-                file_write_strv(
+                ret = file_write_strv(
                     F,
                     "Content-Disposition: attachment; filename=\"",
                     A->filename,
                     "\"\r\n",
                     NULL
                 );
+
+            return_iferr(ret);
         }
 
         switch (A->fmt)
@@ -180,8 +114,10 @@ int att_print(att_p A, file_p F, const char* boundary, int body, int last)
                 file_write_strv(F, "Content-Transfer-Encoding: 7bit\r\n", NULL);
             break;
         }
+        return_iferr(ret);
 
-        file_write_strv(F, "\r\n", NULL);
+        ret = file_write_strv(F, "\r\n", NULL);
+        return_iferr(ret);
     }
 
     if (!file_is_init(A->F))
@@ -224,35 +160,44 @@ int att_print(att_p A, file_p F, const char* boundary, int body, int last)
         }
     }
 
+    return_iferr(ret);
+
     /* In case of body to sign, a trailing <CR><LF> is needed to clearly
      * separate the signed body and the boundary */
     if (nomime)
-        file_write_strv(F, "\r\n", NULL);
-
-    return_iferr(ret);
+    {
+        ret = file_write_strv(F, "\r\n", NULL);
+        return_iferr(ret);
+    }
 
     if (!nomime)
     {
-        file_write_str(F, "\r\n");
+        ret = file_write_str(F, "\r\n");
+        return_iferr(ret);
 
         switch (A->fmt)
         {
         case ATT_FMT_7BIT:
             break;
         default:
-            file_write_str(F, "\r\n");
+            ret = file_write_str(F, "\r\n");
+            return_iferr(ret);
             break;
         }
     }
 
-    file_write_strv(F, "--------------", boundary, NULL);
+    ret = file_write_strv(F, "--------------", boundary, NULL);
+    return_iferr(ret);
 
     if (last)
-        file_write_str(F, "--");
+    {
+        ret = file_write_str(F, "--");
+        return_iferr(ret);
+    }
 
-    file_write_str(F, "\r\n");
+    ret = file_write_str(F, "\r\n");
 
-    return OK;
+    return ret;
 }
 
 int att_set_add(
@@ -273,23 +218,6 @@ int att_set_add(
 #ifdef DEBUG
     att_dump(&A->attachments[A->count]);
 #endif
-
-    if (ret == OK)
-        ++A->count;
-
-    return ret;
-}
-
-int att_set_add_file(
-    att_set_p A, const char* mime, const char* filename, file_p F, int fmt
-)
-{
-    int ret = OK;
-
-    if (A->count == MAX_ATTACHMENTS)
-        return BUFFER_FULL;
-
-    ret = att_init_file(&A->attachments[A->count], mime, filename, F, fmt);
 
     if (ret == OK)
         ++A->count;
@@ -384,7 +312,8 @@ int att_set_print(att_set_p A, file_p F, char* boundary)
     int index_of_last_att;
     int ret = OK;
 
-    file_write_strv(F, "--------------", boundary, "\r\n", NULL);
+    ret     = file_write_strv(F, "--------------", boundary, "\r\n", NULL);
+    return_iferr(ret);
 
     if (A->body_index >= 0)
     {

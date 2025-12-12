@@ -5,15 +5,9 @@
 #define CMC_EML_ERROR_H_INCLUDED
 
 #include <errno.h>
-#include <gpgme.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-/*
- * Not an error
- */
-#define NOT_AN_ERROR -1
 
 /* [0, 1000]
  * OK and FATAL(s)
@@ -22,7 +16,6 @@
 #define FATAL_PARAM 2
 #define FATAL_SIGSEGV 3
 #define FATAL_LOGIC 4
-#define FATAL_GPGME 5
 
 /* (1e+3, 1e+6]
  * ¬FATAL ERROR(s)
@@ -37,8 +30,6 @@
 
 #define MAX_ERROR_SIZE 1024
 extern char error_message[];
-
-extern void error_setgpg(gpgme_error_t err);
 
 #define return_iferr(ret)                                                      \
     {                                                                          \
@@ -86,19 +77,6 @@ extern void error_setgpg(gpgme_error_t err);
                 return STRING_TOO_LONG;                                        \
             }                                                                  \
             memcpy((dst), (src), strcpy_or_toolong_tmp_size);                  \
-        }                                                                      \
-    }
-
-#define arr_assign_cont(V, index, N, val, STAT_VAR)                            \
-    {                                                                          \
-        if ((int)(index) >= (int)(N))                                          \
-        {                                                                      \
-            STAT_VAR = 1002;                                                   \
-            continue;                                                          \
-        }                                                                      \
-        else                                                                   \
-        {                                                                      \
-            (V)[(index)] = (val);                                              \
         }                                                                      \
     }
 

@@ -5,19 +5,15 @@
 
 #include "feat.h"
 
-#include <errno.h>
 #include <fcntl.h>
-#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
 
 #include "attachment.h"
 #include "base64.h"
-#include "bigstring.h"
 #include "comm.h"
 #include "error.h"
 #include "header.h"
@@ -27,11 +23,9 @@
 #define MAIN_BODY_CLEAR "This is a multi-part message in MIME format.\r\n"
 #define MAIN_BODY_SIGN                                                         \
     "This is an OpenPGP/MIME signed message (RFC 4880 and 3156)\r\n"
-#define MIME_OCTETSTREAM "application/octet-stream"
 
 typedef struct global_data_t
 {
-    struct file_t stdout_f;
     struct file_t stdin_f;
 
     struct eml_header_set_t S;
@@ -44,7 +38,7 @@ static void global_data_init(global_data_p);
 static int print_clear_eml_by_command(global_data_p GD, int* comm_arena);
 static int print_signed_eml_by_command(global_data_p GD, int* comm_arena);
 
-static void print_eml_a(
+static int print_eml_a(
     eml_header_set_p S, att_set_p A, file_p out, const char* mimebody, int sign
 );
 
@@ -118,10 +112,12 @@ int main(int argc, char** argv)
     return ret;
 }
 
-static void print_eml_a(
+static int print_eml_a(
     eml_header_set_p S, att_set_p A, file_p out, const char* mainbody, int sign
 )
 {
+    int res = OK;
+
     /* Boundary */
     char raw_boundary[53]; /* Including trailing NUL */
     char boundary_header[256];
@@ -151,19 +147,27 @@ static void print_eml_a(
             NULL
         );
 
-    eml_header_set_add(S, "Content-Type", boundary_header);
-    eml_header_set_add(S, "MIME-Version", "1.0");
+    res = eml_header_set_add(S, "Content-Type", boundary_header);
+    return_iferr(res);
 
-    eml_header_set_print(S, out);
-    file_write_str(out, mainbody);
+    res = eml_header_set_add(S, "MIME-Version", "1.0");
+    return_iferr(res);
 
-    att_set_print(A, out, raw_boundary);
+    res = eml_header_set_print(S, out);
+    return_iferr(res);
+
+    res = file_write_str(out, mainbody);
+    return_iferr(res);
+
+    res = att_set_print(A, out, raw_boundary);
+    return_iferr(res);
+
+    return res;
 }
 
 static void global_data_init(global_data_p GD)
 {
-    file_set_fd(&GD->stdin_f, 0);
-    file_set_fd(&GD->stdout_f, 1);
+    file_set_fd(&GD->stdin_f, STDIN_FILENO);
 
     eml_header_set_init(&GD->S);
     att_set_init(&GD->A);
@@ -189,7 +193,7 @@ static int print_clear_eml_by_command(global_data_p GD, int* comm_arena)
 
     eml_header_set_copy(&Scopy, &GD->S);
 
-    print_eml_a(&Scopy, &GD->A, &out, MAIN_BODY_CLEAR, 0);
+    ret = print_eml_a(&Scopy, &GD->A, &out, MAIN_BODY_CLEAR, 0);
 
     file_close(&out);
 
@@ -229,21 +233,24 @@ static int print_signed_eml_by_command(global_data_p GD, int* comm_arena)
         return ret;
     }
 
-    att_set_add(&GD->A, ATT_NOMIME, "", clear_path_c.value, ATT_FMT_7BIT);
-    att_set_add(
+    ret = att_set_add(&GD->A, ATT_NOMIME, "", clear_path_c.value, ATT_FMT_7BIT);
+    return_iferr(ret);
+
+    ret = att_set_add(
         &GD->A,
         "application/pgp-signature",
         ATT_SIGNATURE_FILENAME,
         sign_path_c.value,
         ATT_FMT_7BIT
     );
+    return_iferr(ret);
 
     ret = file_open(&out, path_c.value, O_RDWR | O_CREAT | O_TRUNC, 0644);
     return_iferr(ret);
 
     eml_header_set_copy(&Scopy, &GD->S);
 
-    print_eml_a(&Scopy, &GD->A, &out, MAIN_BODY_SIGN, 1);
+    ret = print_eml_a(&Scopy, &GD->A, &out, MAIN_BODY_SIGN, 1);
 
     file_close(&out);
 

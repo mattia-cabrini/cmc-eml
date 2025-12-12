@@ -90,7 +90,9 @@ void arena_builder_close(arena_builder_p ARENA);
 
 /* Exec States */
 
-/** - Ignore any blank characters, including \r and \n;
+/**
+ * - Ignore \n and \r;
+ * - For any other blank character: change state to FSM_BLANK_FOR_KEY;
  * - If a token character is provided, it gets added to the arena
  *   and the machine enters state FSM_READ_KEY;
  * - If a character is provided, that is not a token's nor a blank,
@@ -546,9 +548,9 @@ void arena_builder_exec_esc(arena_builder_p ARENA)
  * ^^^^
  * Int representation of 16.
  *
- * ....<NUL><NUL><NUL><NUL>
+ * ....
  * ^^^^
- * Int representation of 4.
+ * Int representation of 0.
  */
 int comm_next(file_p F, int* rawarena, int n)
 {
@@ -672,6 +674,7 @@ int comm_get(const int* arena, const char* key, comm_p COMM)
     return NOT_FOUND;
 }
 
+/* To be called manually, during debug sessions */
 void comm_dump(int* arena)
 {
     int*  cur_size;

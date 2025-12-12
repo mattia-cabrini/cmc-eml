@@ -11,8 +11,6 @@
 #include "comm.h"
 #include "io.h"
 
-#include <stdio.h>
-
 typedef struct eml_header_t
 {
     char key[MAX_HEADER_KEY_SIZE];
@@ -26,15 +24,13 @@ typedef struct eml_header_set_t
 }* eml_header_set_p;
 
 extern void eml_header_init(eml_header_p);
-extern void eml_header_print(eml_header_p, file_p F);
+extern int  eml_header_print(eml_header_p, file_p F);
 
 extern void eml_header_set_init(eml_header_set_p);
 extern void eml_header_set_copy(eml_header_set_p dst, eml_header_set_p src);
-extern int eml_header_set_init_by_args(eml_header_set_p, int argc, char** argv);
-extern int eml_header_set_addv(eml_header_set_p, const char*, ...);
 extern int
 eml_header_set_add(eml_header_set_p, const char* key, const char* value);
-extern int  eml_header_set_add_by_command(eml_header_set_p, const int* command);
-extern void eml_header_set_print(eml_header_set_p, file_p F);
+extern int eml_header_set_add_by_command(eml_header_set_p, const int* command);
+extern int eml_header_set_print(eml_header_set_p, file_p F);
 
 #endif /* CMC_EML_HEADER_H_INCLUDED */

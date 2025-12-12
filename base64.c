@@ -5,18 +5,11 @@
 #include "error.h"
 #include "util.h"
 
-#include <errno.h>
-#include <fcntl.h>
-#include <math.h>
-#include <stdio.h>
-#include <string.h>
-#include <sys/types.h>
-#include <unistd.h>
-
 static const char ALPHABET[] =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 #ifdef DEBUG
+#include <stdio.h>
 #include <stdlib.h>
 
 void base64_test_ALPHABET(void)
@@ -77,7 +70,9 @@ void base64_test_ALPHABET(void)
 }
 #endif
 
-void base64_encode_three(char* dst, char* three, unsigned int size)
+static void base64_encode_three(char* dst, char* three, unsigned int size);
+
+static void base64_encode_three(char* dst, char* three, unsigned int size)
 {
     int n6 = 0;
 
@@ -113,7 +108,6 @@ void base64_encode_three(char* dst, char* three, unsigned int size)
 
 int base64_file_to_file(file_p in, file_p out, int line_length)
 {
-#define cmc_base64_err_outfile "base64_file_to_file: could not print on outfile"
     char buf[4];
     char three[3]         = {0};
 

@@ -4,16 +4,12 @@
 #ifndef CMC_EML_ATTACHMENT_H_INCLUDED
 #define CMC_EML_ATTACHMENT_H_INCLUDED
 
-#define MIME_ENCVER "application/pgp-encrypted"
-
 #define MAX_PATH_SIZE 256
 #define MAX_MIME_SIZE 64
 #define MAX_ATTACHMENTS 512
 
 #include "comm.h"
 #include "io.h"
-
-#include <stdio.h>
 
 /* Transfer Formats */
 enum
@@ -46,18 +42,12 @@ extern const char* ATT_NOMIME;
 extern int att_init(
     att_p, const char* mime, const char* filename, const char* path, int fmt
 );
-extern int
-att_init_file(att_p, const char* mime, const char* filename, file_p F, int fmt);
 extern int att_print(att_p, file_p, const char* boundary, int body, int last);
 
 extern void att_set_init(att_set_p);
-extern int  att_set_init_by_args(att_set_p, int argc, char** argv);
 extern int  att_set_add(
      att_set_p, const char* mime, const char* filename, const char* path, int fmt
  );
-extern int att_set_add_file(
-    att_set_p, const char* mime, const char* filename, file_p F, int fmt
-);
 extern int  att_set_add_by_command(att_set_p, int* comm_arena, int is_body);
 extern void att_set_set_body_index(att_set_p);
 extern int  att_set_print(att_set_p, file_p, char* boundary);
